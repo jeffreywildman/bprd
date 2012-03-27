@@ -1,8 +1,14 @@
 #ifndef __DUBP_H
 #define __DUBP_H
 
-extern int monsta_debug;
+extern int dubp_debug;
 
-#define DEFAULT_PORT 10002
+#define ETH_ALEN 6
+
+/* RFC 5498 - IANA Allocations for Mobile Ad Hoc Network (MANET) Protocols */
+#define MANET_LINKLOCAL_ROUTERS_V4 "224.0.0.109"
+#define MANET_LINKLOCAL_ROUTERS_V6 "FF02::6D"
+#define IPPROTO_MANET 138  /* if running over SOCK_RAW */
+#define IPPORT_MANET 269   /* if running over SOCK_DGRAM */
 
 #endif /* __DUBP_H */
