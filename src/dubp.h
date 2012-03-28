@@ -9,4 +9,6 @@
 #define IPPROTO_MANET 138  /* if running over SOCK_RAW */
 #define IPPORT_MANET 269   /* if running over SOCK_DGRAM */
 
+#define DUBP_INTERFACE "eth0"
+
 #endif /* __DUBP_H */
