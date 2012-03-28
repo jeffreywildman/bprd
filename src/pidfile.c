@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include "pidfile.h"
-#include "util.h"
+#include "logger.h"
 
 
 /* find max length of pid in ASCII form, plus one for newline */
@@ -21,13 +21,12 @@ void pidfile_create(const char *pathname) {
     char buf[maxpidstrlen];
 
     if ((pidfd = open(pathname, O_EXCL | O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH)) < 0) {
-        print_error2(__func__, "Unable to create pidfile, it may already exist", errno);
-        exit(1);
+        DUBP_LOG_ERR("Unable to create pidfile, it may already exist");
     }
     
     buflen = sprintf(buf, "%jd\n", (intmax_t)getpid());
     if (write(pidfd, buf, buflen) < 0) {
-        print_error2(__func__, "Error writing to pidfile", errno);
+        DUBP_LOG_ERR("Error writing to pidfile");
     }
     close(pidfd);
 }
@@ -35,6 +34,6 @@ void pidfile_create(const char *pathname) {
 void pidfile_destroy(const char *pathname) {
 
     if (unlink(pathname) < 0) {
-        print_error2(__func__, "Unable to remove pidfile", errno); 
+        DUBP_LOG_ERR("Unable to remove pidfile");
     }
 }

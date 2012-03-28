@@ -14,7 +14,7 @@
 
 #include "dubp.h"
 #include "pidfile.h"
-#include "util.h"
+#include "logger.h"
 
 int dubp_debug = 1;
 char *program;
@@ -41,8 +41,7 @@ static int daemon_init() {
     pid_t pid, sid;
 
     if ((pid = fork()) < 0) {
-        print_error2(__func__, "Unable to create interim daemon process", errno);
-        exit(1);
+        DUBP_LOG_ERR("Unable to create interim daemon process");
     } else if (pid > 0) {
         /* this is the parent process */
         exit(0);
@@ -51,15 +50,13 @@ static int daemon_init() {
 
     /* make child process a group leader */
     if ((sid = setsid()) < 0) {
-        print_error2(__func__, "Unable to make interim daemon a process group leader", errno);
-        exit(1);
+        DUBP_LOG_ERR("Unable to make interim daemon a process group leader");
     }
 
     /* ignore signal hang up */
     signal(SIGHUP, SIG_IGN);
     if ((pid = fork()) < 0) {
-        print_error2(__func__, "Unable to create daemon process", errno);
-        exit(1);
+        DUBP_LOG_ERR("Unable to create daemon process");
     } else if (pid > 0) {
         /* this is the interim daemon process */
         exit(0);
@@ -81,7 +78,7 @@ static int daemon_init() {
    
     /* install our SIGTERM handler */
     if (sigaction(SIGTERM, &sa, NULL) < 0) {
-        print_error2(__func__, "Unable to set up SIGTERM handler", errno);
+        DUBP_LOG_ERR("Unable to set up SIGTERM handler");
         /* TODO: abstract actual pidfile location */
         pidfile_destroy(pidfile);
     }
@@ -107,8 +104,7 @@ static int socket_init() {
 
     /* create socket */
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        print_error2(__func__, "Unable to create socket", errno);
-        return (err = sockfd);
+        DUBP_LOG_ERR("Unable to create socket");
     }
 
     /* construct binding address */ 
@@ -118,15 +114,10 @@ static int socket_init() {
 
     /* bind address to socket */
     if ((err = bind(sockfd, (const struct sockaddr *)&saddr, sizeof(saddr))) < 0) {
-        print_error2(__func__, "Unable to bind socket", errno);
-        goto socket_destroy;
+        DUBP_LOG_ERR("Unable to bind socket");
     }
 
     return sockfd;
-
-socket_destroy:
-    close(sockfd);
-    return err;
 }
 
 
@@ -139,17 +130,22 @@ int main(int argc, char **argv) {
 
     usage();
 
+    /* initialize logging */
+    log_init();
+    DUBP_LOG_DBG("testing message!");
+    
     /* switch over to daemon process */
     daemon_init();
 
     /* start up socket */
-    if ((sockfd = socket_init()) < 0) {
-        print_error(__func__, "Unable to initialize server");
-        exit(1);
-    }
+    sockfd = socket_init();
 
     /* close socket and get out of here */
     close(sockfd);
+
+    DUBP_LOG_DBG("testing message only /var/log/syslog!");
     
+    log_cleanup();
+
     return 0;
 }

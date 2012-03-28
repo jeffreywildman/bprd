@@ -1,6 +1,7 @@
 #ifndef __DUBP_H
 #define __DUBP_H
 
+extern char *program;
 extern int dubp_debug;
 
 #define ETH_ALEN 6

@@ -1,42 +1,8 @@
-#include "util.h"
-
 #include <stdio.h>
 #include <string.h>
 
-#include <netlink/errno.h>
-
+#include "util.h"
 #include "dubp.h"
-
-
-#define MAX_ERROR_MSG_SIZE 256
-extern char *program;
-
-
-/* thread-safe customized error printing */
-void print_error(const char *func, char *msg) {
-
-    fprintf(stderr, "[%s] %s(): Error", program, func);
-    if (msg != NULL) {
-        fprintf(stderr, ": %s", msg);
-    }
-    fprintf(stderr, "\n");
-}
-
-
-/* thread-safe customized error printing */
-void print_error2(const char *func, char *msg, int err) {
-
-    char errbuf[MAX_ERROR_MSG_SIZE];
-    
-    fprintf(stderr, "[%s] %s(): Error", program, func);
-    if (msg != NULL) {
-        fprintf(stderr, ": %s", msg);
-    }
-    if (strerror_r(err, errbuf, MAX_ERROR_MSG_SIZE) == 0) {
-        fprintf(stderr, ": %s", errbuf);
-    }
-    fprintf(stderr, "\n");
-}
 
 
 void mac_addr_n2a(char *mac_addr, unsigned char *arg)
