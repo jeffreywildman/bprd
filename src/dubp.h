@@ -1,9 +1,6 @@
 #ifndef __DUBP_H
 #define __DUBP_H
 
-extern char *program;
-extern int dubp_debug;
-
 #define ETH_ALEN 6
 
 /* RFC 5498 - IANA Allocations for Mobile Ad Hoc Network (MANET) Protocols */

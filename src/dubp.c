@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -98,7 +99,6 @@ static int daemon_init() {
 /* initialize socket for hello messages */
 static int socket_init() {
 
-    int err;
     int sockfd;
     struct sockaddr_in saddr;
 
@@ -107,19 +107,21 @@ static int socket_init() {
         DUBP_LOG_ERR("Unable to create socket");
     }
 
-    /* construct binding address */ 
+    /* construct binding address */
+    memset(&saddr, 0, sizeof(saddr));
     saddr.sin_family = AF_INET;
-    saddr.sin_addr.s_addr = htonl(INADDR_ANY);  /* clients may reach server through any valid address */
+    saddr.sin_addr.s_addr = htonl(INADDR_ANY);
     saddr.sin_port = htons(IPPORT_MANET);
 
     /* bind address to socket */
-    if ((err = bind(sockfd, (const struct sockaddr *)&saddr, sizeof(saddr))) < 0) {
+    if (bind(sockfd, (const struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
         DUBP_LOG_ERR("Unable to bind socket");
     }
 
+    /* TODO: set socket options here: SO_BROADCAST */
+
     return sockfd;
 }
-
 
 
 int main(int argc, char **argv) {
