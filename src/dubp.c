@@ -2,6 +2,8 @@
  * Drexel University Backpressure Daemon
  */
 
+#include "dubp.h"
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <net/if.h>
@@ -14,8 +16,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <pthread.h>
 
-#include "dubp.h"
 #include "pidfile.h"
 #include "logger.h"
 #include "hello.h"
@@ -104,7 +106,7 @@ static int socket_init() {
 
     int sockfd;
     struct sockaddr_in saddr;
-    struct ip_mreqn maddr;
+    struct ip_mreqn mreq;
 
     /* create socket */
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
@@ -122,23 +124,27 @@ static int socket_init() {
         DUBP_LOG_ERR("Unable to bind socket");
     }
 
-    /* specify default interface for outgoing multicast messages */
-    memset(&maddr.imr_multiaddr, 0, sizeof(maddr.imr_multiaddr));
-    memset(&maddr.imr_address, 0, sizeof(maddr.imr_address));
-    if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &maddr.imr_multiaddr) <= 0) {
+    /* construct multicast request data structure */ 
+    memset(&mreq.imr_multiaddr, 0, sizeof(mreq.imr_multiaddr));
+    memset(&mreq.imr_address, 0, sizeof(mreq.imr_address));
+    if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &mreq.imr_multiaddr) <= 0) {
         DUBP_LOG_ERR("Unable to convert MANET link local address");
     }
-    if ((maddr.imr_ifindex = if_nametoindex(DUBP_INTERFACE)) <= 0) {
+    if ((mreq.imr_ifindex = if_nametoindex(DUBP_INTERFACE)) <= 0) {
         DUBP_LOG_ERR("Unable to convert device name to index");
     }
-    if (setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_IF, &maddr, sizeof(maddr)) < 0) {
-        DUBP_LOG_ERR("Unable to set outgoing multicast interface");
+
+    /* specify default interface for outgoing multicast messages */
+//    if (setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
+//        DUBP_LOG_ERR("Unable to set outgoing multicast interface");
+//    }
+    /* TODO: figure out if this is an ...OR... or ...AND... */
+    /* join multicast group on the desired interface */
+    /* now we should be able to receive multicast messages on this interface as well */
+    if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+        DUBP_LOG_ERR("Unable to join multicast group");
     }
-
-    /* TODO: determine if DONTROUTE is needed here if we have already specified outgoing interface for outgoing multicast */
-    /* specify outgoing messages to skip routing */
-    setsockopt(sockfd, SOL_SOCKET, SO_DONTROUTE, (int)0, sizeof(int));
-
+ 
     return sockfd;
 }
 
@@ -146,18 +152,16 @@ static int socket_init() {
 int main(int argc, char **argv) {
 
     int sockfd;
-    struct sockaddr_in maddr; 
+    struct sockaddr saddr; 
+    socklen_t saddr_len;
     hellomsg_t hello;
-    uint32_t i = 0;
-    ssize_t n;
 
     program = argv[0];
 
-    usage();
+    //usage();
 
     /* initialize logging */
     log_init();
-    DUBP_LOG_DBG("testing message!");
     
     /* switch over to daemon process */
     daemon_init();
@@ -165,39 +169,29 @@ int main(int argc, char **argv) {
     /* start up socket */
     sockfd = socket_init();
 
-    /* construct MANET address to send to */
-    memset(&maddr, 0, sizeof(maddr));
-    maddr.sin_family = AF_INET;
-    if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &maddr.sin_addr.s_addr) <= 0) {
-        DUBP_LOG_ERR("Unable to convert MANET link local address");
-    }
-    maddr.sin_port = htons(IPPORT_MANET);
+    /* initialize protocol data structures */
+    ntable.h1list = NULL;
+    ntable.size = 0;
+    pthread_mutex_init(&ntable.mutex, NULL);
 
-    /* construct hello message */
-    hello.type = 0xFF;
-    hello.metric = htonl(0x12345678);
+    /* start the hello thread */
+    hello_thread_create(sockfd);
 
-    while (1) {
-        
-        hello.seqnum = htonl(i);
+    /* just hang out here for a while */
+    while(1) {
 
-        if ((n = sendto(sockfd, &hello, sizeof(hellomsg_t), 0, (const struct sockaddr *)&maddr, sizeof(maddr))) < 0) {
-            DUBP_LOG_ERR("Unable to send hello!");
+        /* block while reading from socket */
+        /* TODO: use iovec! scatter/gather methods */
+        if (recvfrom(sockfd, &hello, sizeof(hello), 0, &saddr, &saddr_len) < 0) {
+            DUBP_LOG_ERR("Unable to receive hello!");
         } else {
-            DUBP_LOG_DBG("Sent hello message to " MANET_LINKLOCAL_ROUTERS_V4);
+            DUBP_LOG_DBG("Received hello message");
         }
-
-        sleep(1);
-
-        i++;
     }
-
 
     /* close socket and get out of here */
     close(sockfd);
 
-    DUBP_LOG_DBG("testing message only /var/log/syslog!");
-    
     log_cleanup();
 
     return 0;

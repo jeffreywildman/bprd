@@ -1,3 +1,5 @@
+#include "pidfile.h"
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdint.h>
@@ -7,7 +9,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "pidfile.h"
 #include "logger.h"
 
 

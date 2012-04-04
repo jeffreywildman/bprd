@@ -10,5 +10,6 @@
 #define IPPORT_MANET 269   /* if running over SOCK_DGRAM */
 
 #define DUBP_INTERFACE "eth0"
+#define DUBP_HELLO_INTERVAL 1  /* seconds */
 
 #endif /* __DUBP_H */
