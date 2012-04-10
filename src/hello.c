@@ -51,7 +51,7 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
         }
 
         /* TODO: generalize hello message interval */
-        sleep(DUBP_HELLO_INTERVAL);
+        sleep(dubpd.hello_interval);
 
         i++;
     }

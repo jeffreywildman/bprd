@@ -22,22 +22,17 @@
 #include "logger.h"
 #include "hello.h"
 
-int dubp_debug = 1;
-char *program;
-
-/* TODO: move this into a config.h */
-static const char *pidfile = "/var/run/dubpd.pid";
-
 
 static void usage() {
-    printf("Usage:\t%s\n",program);
+    printf("Usage:\t%s\n",dubpd.program);
 }
 
 
 static void daemon_handler_sigterm(int signum __attribute__ ((unused))) {
 
-    /* TODO: abstract actual pidfile location */
-    pidfile_destroy(pidfile);
+    if (pidfile_destroy(dubpd.pidfile) < 0) {
+        DUBP_LOG_ERR("Unable to destroy pidfile");        
+    }
     exit(1);
 }
 
@@ -78,15 +73,17 @@ static int daemon_init() {
     sigemptyset(&sa.sa_mask);
     sa.sa_flags = 0;
 
-    /* TODO: move the pid file location into config.h */
     /* TODO: attempt to create lock on /var/run/pid file before creating daemon */
-    pidfile_create(pidfile);
+    if (pidfile_create(dubpd.pidfile) < 0) {
+        DUBP_LOG_ERR("Unable to create pidfile");
+    }
    
     /* install our SIGTERM handler */
     if (sigaction(SIGTERM, &sa, NULL) < 0) {
         DUBP_LOG_ERR("Unable to set up SIGTERM handler");
-        /* TODO: abstract actual pidfile location */
-        pidfile_destroy(pidfile);
+        if (pidfile_destroy(dubpd.pidfile) < 0) {
+            DUBP_LOG_ERR("Unable to destroy pidfile");   
+        }
     }
 
     /* change current directory to root */
@@ -130,7 +127,7 @@ static int socket_init() {
     if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &mreq.imr_multiaddr) <= 0) {
         DUBP_LOG_ERR("Unable to convert MANET link local address");
     }
-    if ((mreq.imr_ifindex = if_nametoindex(DUBP_INTERFACE)) <= 0) {
+    if ((mreq.imr_ifindex = if_nametoindex(dubpd.ifrn_name)) <= 0) {
         DUBP_LOG_ERR("Unable to convert device name to index");
     }
 
@@ -149,6 +146,32 @@ static int socket_init() {
 }
 
 
+/* initialize dubp instance */
+void dubp_init(int argc, char **argv) {
+
+    dubpd.program = argv[0];
+
+    /* for now just set default parameters */ 
+   
+    if (!(dubpd.pidfile = (char *)malloc(DUBP_DEFAULT_PIDLEN*sizeof(char)))) {
+        DUBP_LOG_ERR("Unable to allocate memory");
+    }
+    if (sprintf(dubpd.pidfile, "%s", DUBP_DEFAULT_PIDSTR) < 0) {
+        DUBP_LOG_ERR("Unable to set default pidfile string");
+    }
+
+    if (!(dubpd.ifrn_name = (char *)malloc(IF_NAMESIZE*sizeof(char)))) {
+        DUBP_LOG_ERR("Unable to allocate memory");
+    }
+    if (snprintf(dubpd.ifrn_name, IF_NAMESIZE*sizeof(char), "%s", DUBP_DEFAULT_INTERFACE) < 0) {
+        DUBP_LOG_ERR("Unable to set default interface string");
+    }
+
+    dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
+
+}
+
+
 int main(int argc, char **argv) {
 
     int sockfd;
@@ -156,7 +179,8 @@ int main(int argc, char **argv) {
     socklen_t saddr_len;
     hellomsg_t hello;
 
-    program = argv[0];
+    /* set instance parameters */
+    dubp_init(argc, argv);
 
     //usage();
 
@@ -170,9 +194,7 @@ int main(int argc, char **argv) {
     sockfd = socket_init();
 
     /* initialize protocol data structures */
-    ntable.h1list = NULL;
-    ntable.size = 0;
-    pthread_mutex_init(&ntable.mutex, NULL);
+    //ntable_init();
 
     /* start the hello thread */
     hello_thread_create(sockfd);
@@ -192,6 +214,10 @@ int main(int argc, char **argv) {
     /* close socket and get out of here */
     close(sockfd);
 
+    /* cleanup protocol data structures */
+    //ntable_destroy();
+
+    /* cleanup logging */
     log_cleanup();
 
     return 0;
