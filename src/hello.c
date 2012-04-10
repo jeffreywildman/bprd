@@ -10,6 +10,7 @@
 #include "dubp.h"
 #include "logger.h"
 
+#include <packetbb/pbb_writer.h>
 
 /* loop endlessly and send hello messages */
 static void *hello_thread(void *arg __attribute__((unused)) ) {
@@ -21,6 +22,16 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
     /* construct hello message */
     hello.type = 0xFF;
     hello.metric = htonl(0x12345678);
+
+    /* initialize packetbb writer */
+    struct pbb_writer w;
+    
+    size_t mtu = 128;
+
+    if (pbb_writer_init(&w, mtu, 3*mtu) < 0) {
+        DUBP_LOG_ERR("Unable to initialize packetbb writer");
+    }
+
 
     while (1) {
         

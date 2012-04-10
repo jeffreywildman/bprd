@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I m4
 
-SUBDIRS = src .
+SUBDIRS = lib src .
 
 MAINTAINERCLEANFILES = aclocal.m4 \
 					   configure \

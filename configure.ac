@@ -61,7 +61,10 @@ LIBS="${LIBS}"
 
 
 AC_CONFIG_FILES([Makefile \
-				src/Makefile])
+				src/Makefile \
+                lib/Makefile \
+                lib/common/Makefile \
+                lib/packetbb/Makefile])
 AC_OUTPUT
 
 echo \

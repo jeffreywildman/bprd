@@ -1,8 +1,9 @@
 bin_PROGRAMS = dubpd
 
-dubpd_CPPFLAGS = 
-dubpd_LDFLAGS = 
-dubpd_LDADD = -lpthread
+dubpd_CPPFLAGS = -I$(top_srcdir)/lib
+dubpd_LDFLAGS =
+dubpd_LDADD = -lpthread \
+			  $(top_srcdir)/lib/packetbb/libpacketbb.la
 dubpd_SOURCES = dubp.c \
 				pidfile.c \
 				util.c \
