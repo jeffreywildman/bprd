@@ -6,7 +6,6 @@
 #include <string.h>
 #include <syslog.h>
 
-#include "dubp.h"
 
 #define MAX_ERROR_MSG_SIZE 256
 
