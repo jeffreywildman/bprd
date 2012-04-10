@@ -132,11 +132,6 @@ static void socket_init() {
         DUBP_LOG_ERR("Unable to convert device name to index");
     }
 
-    /* specify default interface for outgoing multicast messages */
-//    if (setsockopt(sockfd, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
-//        DUBP_LOG_ERR("Unable to set outgoing multicast interface");
-//    }
-    /* TODO: figure out if this is an ...OR... or ...AND... */
     /* join multicast group on the desired interface */
     /* now we should be able to receive multicast messages on this interface as well */
     if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
@@ -193,7 +188,7 @@ void dubp_init(int argc, char **argv) {
     dubpd.csize = 0;
 
     /* TODO: initialize my neighbor table - remember mutex lock! */
-    ntable_init();
+    ntable_init(&dubpd.ntable);
 
 }
 
