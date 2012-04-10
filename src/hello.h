@@ -14,7 +14,7 @@ typedef struct hellomsg {
 /* TODO: serialize function for hellomsg */
 /* TODO: reverse serialize function for hellomsg */
 
-void hello_thread_create(int sockfd);
+extern void hello_thread_create();
 
 
 #endif /* __HELLO_H */

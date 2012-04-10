@@ -7,6 +7,7 @@ dubpd_SOURCES = dubp.c \
 				pidfile.c \
 				util.c \
 				logger.c \
-				hello.c
+				hello.c \
+				ntable.c
 
 MAINTAINERCLEANFILES = Makefile.in

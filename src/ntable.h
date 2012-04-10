@@ -20,14 +20,14 @@ typedef struct neighbor {
     uint8_t address;        /* address of the neighbor */
     uint8_t bidir;          /* boolean integer indicating a bidirectional link to neighbor */
     commodityhead_t chead;  /* commodity list of neighbor */
-    uint8_t size;           /* number of commodities at neighbor */
+    uint8_t csize;          /* number of commodities at neighbor */
     LIST_ENTRY(neighbor) neighbors;
 } neighbor_t;
 
 /* neighbor table definitions */
 typedef struct neighbor_table {
     neighborhead_t nhead;   /* neighbor list */
-    uint8_t size;           /* number of neighbors */
+    uint8_t nsize;          /* number of neighbors */
     pthread_mutex_t mutex;
 } neighbor_table_t;
 

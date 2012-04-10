@@ -21,6 +21,7 @@
 #include "pidfile.h"
 #include "logger.h"
 #include "hello.h"
+#include "ntable.h"
 
 
 static void usage() {
@@ -99,14 +100,14 @@ static int daemon_init() {
 
 
 /* initialize socket for hello messages */
-static int socket_init() {
+/* TODO: protocol v4/v6 independent */
+static void socket_init() {
 
-    int sockfd;
     struct sockaddr_in saddr;
     struct ip_mreqn mreq;
 
     /* create socket */
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+    if ((dubpd.sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
         DUBP_LOG_ERR("Unable to create socket");
     }
 
@@ -117,7 +118,7 @@ static int socket_init() {
     saddr.sin_port = htons(IPPORT_MANET);
 
     /* bind address to socket */
-    if (bind(sockfd, (const struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
+    if (bind(dubpd.sockfd, (const struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
         DUBP_LOG_ERR("Unable to bind socket");
     }
 
@@ -138,11 +139,10 @@ static int socket_init() {
     /* TODO: figure out if this is an ...OR... or ...AND... */
     /* join multicast group on the desired interface */
     /* now we should be able to receive multicast messages on this interface as well */
-    if (setsockopt(sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+    if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         DUBP_LOG_ERR("Unable to join multicast group");
     }
  
-    return sockfd;
 }
 
 
@@ -152,7 +152,8 @@ void dubp_init(int argc, char **argv) {
     dubpd.program = argv[0];
 
     /* for now just set default parameters */ 
-   
+  
+    /* set pidfile location */
     if (!(dubpd.pidfile = (char *)malloc(DUBP_DEFAULT_PIDLEN*sizeof(char)))) {
         DUBP_LOG_ERR("Unable to allocate memory");
     }
@@ -160,6 +161,7 @@ void dubp_init(int argc, char **argv) {
         DUBP_LOG_ERR("Unable to set default pidfile string");
     }
 
+    /* set hardware interface name */
     if (!(dubpd.ifrn_name = (char *)malloc(IF_NAMESIZE*sizeof(char)))) {
         DUBP_LOG_ERR("Unable to allocate memory");
     }
@@ -167,45 +169,64 @@ void dubp_init(int argc, char **argv) {
         DUBP_LOG_ERR("Unable to set default interface string");
     }
 
+    /* set multicast address for hello messages */
+    /* TODO: remove assumption of IPv4 address */
+    struct sockaddr_in *maddr;
+    if(!(maddr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in)))) {
+        DUBP_LOG_ERR("Unable to allocate memory");
+    }
+    memset(maddr, 0, sizeof(struct sockaddr_in));
+    maddr->sin_family = AF_INET;
+    if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &maddr->sin_addr.s_addr) <= 0) {
+        DUBP_LOG_ERR("Unable to convert MANET link local address");
+    }
+    maddr->sin_port = htons(IPPORT_MANET);
+
+    dubpd.maddr = (struct sockaddr *)maddr;
+    dubpd.maddrlen = sizeof(*maddr);
+    
+    /* timers */
     dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
 
     /* TODO: initialize my commodity list */
+    LIST_INIT(&dubpd.chead);
+    dubpd.csize = 0;
 
     /* TODO: initialize my neighbor table - remember mutex lock! */
+    ntable_init();
 
 }
 
 
 int main(int argc, char **argv) {
 
-    int sockfd;
     struct sockaddr saddr; 
     socklen_t saddr_len;
     hellomsg_t hello;
 
+    /* initialize logging */
+    log_init();
+    
     /* set instance parameters */
     dubp_init(argc, argv);
 
     //usage();
-
-    /* initialize logging */
-    log_init();
     
     /* switch over to daemon process */
     daemon_init();
 
     /* start up socket */
-    sockfd = socket_init();
+    socket_init();
 
     /* start the hello thread */
-    hello_thread_create(sockfd);
+    hello_thread_create();
 
     /* just hang out here for a while */
     while(1) {
 
         /* block while reading from socket */
         /* TODO: use iovec! scatter/gather methods */
-        if (recvfrom(sockfd, &hello, sizeof(hello), 0, &saddr, &saddr_len) < 0) {
+        if (recvfrom(dubpd.sockfd, &hello, sizeof(hello), 0, &saddr, &saddr_len) < 0) {
             DUBP_LOG_ERR("Unable to receive hello!");
         } else {
             DUBP_LOG_DBG("Received hello message");
@@ -213,7 +234,7 @@ int main(int argc, char **argv) {
     }
 
     /* close socket and get out of here */
-    close(sockfd);
+    close(dubpd.sockfd);
 
     /* cleanup logging */
     log_cleanup();

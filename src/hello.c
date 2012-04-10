@@ -7,33 +7,17 @@
 #include <unistd.h>
 #include <pthread.h>
 
-
 #include "dubp.h"
 #include "logger.h"
 
 
-typedef struct hello_thread_data {
-    int sockfd;
-    pthread_t tid;
-} hello_thread_data_t;
-hello_thread_data_t htdata;
-
 /* loop endlessly and send hello messages */
 static void *hello_thread(void *arg __attribute__((unused)) ) {
 
-    struct sockaddr_in maddr; 
     hellomsg_t hello;
     uint32_t i = 0;
     ssize_t n;
     
-    /* construct MANET address to send to */
-    memset(&maddr, 0, sizeof(maddr));
-    maddr.sin_family = AF_INET;
-    if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &maddr.sin_addr.s_addr) <= 0) {
-        DUBP_LOG_ERR("Unable to convert MANET link local address");
-    }
-    maddr.sin_port = htons(IPPORT_MANET);
-
     /* construct hello message */
     hello.type = 0xFF;
     hello.metric = htonl(0x12345678);
@@ -44,7 +28,7 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
         hello.seqnum = htonl(i);
         /* TODO: unlock ntable.mutex after reading from ntable */
 
-        if ((n = sendto(htdata.sockfd, &hello, sizeof(hello), 0, (const struct sockaddr *)&maddr, sizeof(maddr))) < 0) {
+        if ((n = sendto(dubpd.sockfd, &hello, sizeof(hello), 0, (const struct sockaddr *)dubpd.maddr, dubpd.maddrlen)) < 0) {
             DUBP_LOG_ERR("Unable to send hello!");
         } else {
             DUBP_LOG_DBG("Sent hello message to " MANET_LINKLOCAL_ROUTERS_V4);
@@ -60,11 +44,10 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
 }
 
 
-void hello_thread_create(int sockfd) {
+void hello_thread_create() {
   
-    htdata.sockfd = sockfd;
     /* TODO: check out pthread_attr options, currently set to NULL */
-    if (pthread_create(&(htdata.tid), NULL, hello_thread, NULL) < 0) {
+    if (pthread_create(&(dubpd.hello_tid), NULL, hello_thread, NULL) < 0) {
         DUBP_LOG_ERR("Unable to create hello thread");
     }
 

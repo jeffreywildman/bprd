@@ -2,6 +2,7 @@
 #define __DUBP_H
 
 #include <stdint.h>
+#include <sys/socket.h>
 
 #include "ntable.h"
 
@@ -26,15 +27,25 @@ struct dubp {
     char *program;      /* program name */
     char *pidfile;      /* pidfile location */
 
+    int sockfd;         /* socket running dubpd */
+
     /* TODO: allow dubpd to run over mutiple interfaces */
-    char *ifrn_name;     /* HW interface running dubpd */ 
+    char *ifrn_name;            /* HW interface running dubpd */
+    struct sockaddr *saddr;     /* generic structure address running dubpd */
+    uint8_t saddrlen;           /* size of socket address structure */
+
+    struct sockaddr *maddr;     /* generic structure for multicast address */
+    uint8_t maddrlen;           /* size of multicast address structure */
+
+    /* hello thread data */   
+    pthread_t hello_tid;
 
     /* timers */
     unsigned int hello_interval; 
 
     /* TODO: do i need to keep a reference to my address? */
     commodityhead_t chead;  /* my commodity list */
-    uint8_t size;           /* size of my commodity list */
+    uint8_t csize;          /* size of my commodity list */
     /* TODO: do i need a mutex for my commodity list? */
 
     /* neighbor table */
