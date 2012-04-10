@@ -1,6 +1,10 @@
 #ifndef __DUBP_H
 #define __DUBP_H
 
+#include <stdint.h>
+
+#include "ntable.h"
+
 #define ETH_ALEN 6
 
 /* RFC 5498 - IANA Allocations for Mobile Ad Hoc Network (MANET) Protocols */
@@ -28,15 +32,15 @@ struct dubp {
     /* timers */
     unsigned int hello_interval; 
 
-
     /* TODO: do i need to keep a reference to my address? */
-    //commodityhead_t chead;  /* my commodity list */
+    commodityhead_t chead;  /* my commodity list */
+    uint8_t size;           /* size of my commodity list */
+    /* TODO: do i need a mutex for my commodity list? */
 
     /* neighbor table */
-    //neighbor_table_t ntable;
+    neighbor_table_t ntable;
 
 } dubpd;
-
 
 
 #endif /* __DUBP_H */

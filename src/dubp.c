@@ -169,6 +169,10 @@ void dubp_init(int argc, char **argv) {
 
     dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
 
+    /* TODO: initialize my commodity list */
+
+    /* TODO: initialize my neighbor table - remember mutex lock! */
+
 }
 
 
@@ -193,9 +197,6 @@ int main(int argc, char **argv) {
     /* start up socket */
     sockfd = socket_init();
 
-    /* initialize protocol data structures */
-    //ntable_init();
-
     /* start the hello thread */
     hello_thread_create(sockfd);
 
@@ -213,9 +214,6 @@ int main(int argc, char **argv) {
 
     /* close socket and get out of here */
     close(sockfd);
-
-    /* cleanup protocol data structures */
-    //ntable_destroy();
 
     /* cleanup logging */
     log_cleanup();
