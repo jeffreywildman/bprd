@@ -179,9 +179,11 @@ void dubp_init(int argc, char **argv) {
 
     dubpd.maddr = (struct sockaddr *)maddr;
     dubpd.maddrlen = sizeof(*maddr);
-    
+   
     /* timers */
     dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
+
+    dubpd.hello_seqno = 0;
 
     /* TODO: initialize my commodity list */
     LIST_INIT(&dubpd.chead);
@@ -199,6 +201,7 @@ int main(int argc, char **argv) {
     socklen_t saddr_len;
     hellomsg_t hello;
 
+    
     /* initialize logging */
     log_init();
     
@@ -220,12 +223,14 @@ int main(int argc, char **argv) {
     while(1) {
 
         /* block while reading from socket */
-        /* TODO: use iovec! scatter/gather methods */
-        if (recvfrom(dubpd.sockfd, &hello, sizeof(hello), 0, &saddr, &saddr_len) < 0) {
-            DUBP_LOG_ERR("Unable to receive hello!");
-        } else {
-            DUBP_LOG_DBG("Received hello message");
-        }
+        /* TODO: use packetbb to read packets! */
+        //if (recvfrom(dubpd.sockfd, &hello, sizeof(hello), 0, &saddr, &saddr_len) < 0) {
+        //    DUBP_LOG_ERR("Unable to receive hello!");
+        //} else {
+        //    DUBP_LOG_DBG("Received hello message");
+        //}
+        
+        sleep(1);
     }
 
     /* close socket and get out of here */

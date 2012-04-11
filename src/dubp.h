@@ -21,6 +21,8 @@
 #define DUBP_DEFAULT_PIDLEN 25
 #define DUBP_DEFAULT_PIDSTR "/var/run/dubpd.pid"
 
+#define DUBP_MSG_TYPE_HELLO 1
+
 
 /* dubpd instance */
 struct dubp {
@@ -39,6 +41,7 @@ struct dubp {
 
     /* hello thread data */   
     pthread_t hello_tid;
+    uint16_t hello_seqno;
 
     /* timers */
     unsigned int hello_interval; 
