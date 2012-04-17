@@ -26,13 +26,16 @@
 
 /* dubpd instance */
 struct dubp {
-    char *program;      /* program name */
-    char *pidfile;      /* pidfile location */
+    char    *program;       /* program name */
+    int     dmode;    
+    int     ipver;         
+    char    *confile;       /* config file location */
+    char    *pidfile;       /* pidfile location */
 
     int sockfd;         /* socket running dubpd */
 
     /* TODO: allow dubpd to run over mutiple interfaces */
-    char *ifrn_name;            /* HW interface running dubpd */
+    char *if_name;              /* HW interface running dubpd */
     struct sockaddr *saddr;     /* generic structure address running dubpd */
     uint8_t saddrlen;           /* size of socket address structure */
 

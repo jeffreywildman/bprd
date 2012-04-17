@@ -6,8 +6,11 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <getopt.h>
+#include <ifaddrs.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,16 +19,24 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <pthread.h>
 
 #include "pidfile.h"
 #include "logger.h"
 #include "hello.h"
 #include "ntable.h"
+#include "util.h"
 
 
 static void usage() {
-    printf("Usage:\t%s\n",dubpd.program);
+    printf("\nUsage:\t%s [OPTION]...\n",dubpd.program);
+    printf("Start the backpressure routing protocol with OPTIONs.\n\n");
+    printf("Mandatory arguments to long options are mandatory for short options too.\n");
+    printf("  -c, --config=FILE     \tread configuration parameters from FILE\n");
+    printf("  -d                    \trun the program as a daemon\n");
+    printf(" -v4, --v4              \trun the protocol using IPv4 (default)\n");
+    printf(" -v6, --v6              \trun the protocol using IPv6\n");
+    printf("  -i, --interface=IFACE \trun the protocol over interface IFACE (default is eth0)\n");
+    printf("  -p, --pidfile=FILE    \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
 }
 
 
@@ -128,7 +139,7 @@ static void socket_init() {
     if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &mreq.imr_multiaddr) <= 0) {
         DUBP_LOG_ERR("Unable to convert MANET link local address");
     }
-    if ((mreq.imr_ifindex = if_nametoindex(dubpd.ifrn_name)) <= 0) {
+    if ((mreq.imr_ifindex = if_nametoindex(dubpd.if_name)) <= 0) {
         DUBP_LOG_ERR("Unable to convert device name to index");
     }
 
@@ -141,27 +152,152 @@ static void socket_init() {
 }
 
 
+
 /* initialize dubp instance */
+/* precedence of options, i) command-line, ii) config file, iii) in-code defaults */
 void dubp_init(int argc, char **argv) {
 
-    dubpd.program = argv[0];
+    int c;
 
-    /* for now just set default parameters */ 
-  
-    /* set pidfile location */
-    if (!(dubpd.pidfile = (char *)malloc(DUBP_DEFAULT_PIDLEN*sizeof(char)))) {
-        DUBP_LOG_ERR("Unable to allocate memory");
+    /* pre-initialization of runtime variables */
+    dubpd.program = argv[0];
+    dubpd.dmode = 0;
+    dubpd.ipver = AF_INET;
+    dubpd.confile = NULL;
+    dubpd.pidfile = NULL;
+    dubpd.sockfd = -1;
+    dubpd.if_name = NULL;
+    dubpd.saddr = NULL;
+    dubpd.saddrlen = 0;
+    dubpd.maddr = NULL;
+    dubpd.maddrlen = 0;
+
+    int lo_index;
+    static struct option config_option[] = {
+        {"config", required_argument, NULL, 'c'},
+        {0,0,0,0}
+    };
+    static struct option long_options[] = {
+        /* these options set a flag */
+        {"d", no_argument, &dubpd.dmode, 1},
+        {"v4", no_argument, &dubpd.ipver, AF_INET},
+        {"v6", no_argument, &dubpd.ipver, AF_INET6},
+        /* these options do not set a flag */
+        {"config", required_argument, NULL, 'c'},
+        {"interface", required_argument, NULL, 'i'},
+        {"pidfile", required_argument, NULL, 'p'},
+        {0,0,0,0}
+    };
+
+    opterr = 0;
+    
+    /* first check for config file within arguments */
+    while ((c = getopt_long_only(argc, argv, "-", config_option, &lo_index)) != -1) {
+        if (c == 'c') {
+            printf("config: %s\n", optarg);
+            dubpd.confile = optarg;
+            /* TODO: process configuration file here, before all other options */
+            /* confile_read(); */
+        }
     }
-    if (sprintf(dubpd.pidfile, "%s", DUBP_DEFAULT_PIDSTR) < 0) {
-        DUBP_LOG_ERR("Unable to set default pidfile string");
+    
+    /* reset optind to reparse command-line args */
+    optind = 0;
+    opterr = 1;
+
+    /* iterate through arguments again, optind is now first argument not recognized by original pass */
+    while ((c = getopt_long_only(argc, argv, "", long_options, &lo_index)) != -1) {
+        switch (c) {
+        case 0:
+            if (long_options[lo_index].flag != 0) {
+                printf("%s: %d\n", long_options[lo_index].name, long_options[lo_index].val);
+            }
+            break;
+        case 'c':
+            /* ignore the config file this time around! */
+            break;
+        case 'i':
+            printf("interface: %s\n", optarg);
+            dubpd.if_name = optarg;
+            break;
+        case 'p':
+            printf("pidfile option: %s\n", optarg);
+            dubpd.pidfile = optarg;
+            break;
+        case '?':
+            DUBP_LOG_ERR("Unable to parse input arguments");
+            break;
+        default:
+            DUBP_LOG_ERR("Unable to parse input arguments");
+            break;
+        }
+    }
+
+    /* handle unrecognized options */
+    if (optind < argc) {
+        printf("Unrecognized options:\n");
+        while (optind < argc) {
+            printf("Unrecognized option: %s\n", argv[optind++]); 
+        }
+        usage();
+        DUBP_LOG_DBG("Unrecognized options on command-line input");
+    }
+
+    /* set remaining parameters to defaults */ 
+
+    /* set pidfile location */
+    if (!dubpd.pidfile) {
+        if (!(dubpd.pidfile = (char *)malloc(DUBP_DEFAULT_PIDLEN*sizeof(char)))) {
+            DUBP_LOG_ERR("Unable to allocate memory");
+        }
+        if (sprintf(dubpd.pidfile, "%s", DUBP_DEFAULT_PIDSTR) < 0) {
+            DUBP_LOG_ERR("Unable to set default pidfile string");
+        }
     }
 
     /* set hardware interface name */
-    if (!(dubpd.ifrn_name = (char *)malloc(IF_NAMESIZE*sizeof(char)))) {
-        DUBP_LOG_ERR("Unable to allocate memory");
+    if (!dubpd.if_name) {
+        if (!(dubpd.if_name = (char *)malloc(IF_NAMESIZE*sizeof(char)))) {
+            DUBP_LOG_ERR("Unable to allocate memory");
+        }
+        if (snprintf(dubpd.if_name, IF_NAMESIZE*sizeof(char), "%s", DUBP_DEFAULT_INTERFACE) < 0) {
+            DUBP_LOG_ERR("Unable to set default interface string");
+        }
     }
-    if (snprintf(dubpd.ifrn_name, IF_NAMESIZE*sizeof(char), "%s", DUBP_DEFAULT_INTERFACE) < 0) {
-        DUBP_LOG_ERR("Unable to set default interface string");
+
+    /* set interface address */
+    if (!dubpd.saddr) {
+
+        /* get my current address on the above hardware interface */
+        struct ifaddrs *iflist, *ifhead;
+        if (getifaddrs(&iflist) < 0) {
+            DUBP_LOG_ERR("Unable to get interface addresses");
+        }
+
+        ifhead = iflist;
+
+        while(iflist) {
+            if (iflist->ifa_name && strcmp(iflist->ifa_name,dubpd.if_name) == 0) {
+                unsigned int family = iflist->ifa_addr->sa_family;
+                if (iflist->ifa_addr && family == (uint8_t)dubpd.ipver) {
+                    /* TODO: validate or remove assumption that first IPv4/v6 address on the desired interface is the correct one! */
+                    if ((uint8_t)dubpd.ipver == AF_INET) {
+                        dubpd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in_t));
+                        dubpd.saddrlen = sizeof(sockaddr_in_t);
+                    } else if ((uint8_t)dubpd.ipver == AF_INET6) {
+                        dubpd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in6_t));
+                        dubpd.saddrlen = sizeof(sockaddr_in6_t);
+                    } else {DUBP_LOG_ERR("Unknown IP version");}
+                    memcpy(dubpd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,dubpd.saddrlen);
+                    break;
+                }
+            }
+            iflist = iflist->ifa_next;
+        }
+        freeifaddrs(ifhead);
+    }
+    if (!dubpd.saddr) {
+        DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface");
     }
 
     /* set multicast address for hello messages */
@@ -179,7 +315,7 @@ void dubp_init(int argc, char **argv) {
 
     dubpd.maddr = (struct sockaddr *)maddr;
     dubpd.maddrlen = sizeof(*maddr);
-   
+
     /* timers */
     dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
 
@@ -201,17 +337,15 @@ int main(int argc, char **argv) {
     socklen_t saddr_len;
     hellomsg_t hello;
 
-    
+
     /* initialize logging */
     log_init();
-    
+
     /* set instance parameters */
     dubp_init(argc, argv);
 
-    //usage();
-    
     /* switch over to daemon process */
-    daemon_init();
+    if (dubpd.dmode) {daemon_init();}
 
     /* start up socket */
     socket_init();
@@ -229,7 +363,7 @@ int main(int argc, char **argv) {
         //} else {
         //    DUBP_LOG_DBG("Received hello message");
         //}
-        
+
         sleep(1);
     }
 

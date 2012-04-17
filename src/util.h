@@ -1,9 +1,18 @@
 #ifndef __UTIL_H
 #define __UTIL_H
 
+#include <arpa/inet.h>
+
 #define BIT(x) (1ULL<<(x))
 
 extern int mac_addr_a2n(unsigned char *mac_addr, char *arg);
 extern void mac_addr_n2a(char *mac_addr, unsigned char *arg);
+
+typedef struct sockaddr sockaddr_t;
+typedef struct sockaddr_in sockaddr_in_t;
+typedef struct sockaddr_in6 sockaddr_in6_t;
+
+extern int addr2str(const sockaddr_t *saddr, char *host, size_t hostlen);
+extern void print_args(int argc, char **argv);
 
 #endif /* __UTIL_H */
