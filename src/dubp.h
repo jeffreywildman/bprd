@@ -23,6 +23,9 @@
 
 #define DUBP_MSG_TYPE_HELLO 1
 
+#define DUBP_ADDRTLV_TYPE_COMKEY 1
+#define DUBP_ADDRTLV_TYPE_BACKLOG 2
+
 
 /* dubpd instance */
 struct dubp {

@@ -11,6 +11,14 @@
 #include "logger.h"
 
 #include <packetbb/pbb_writer.h>
+#include <common/netaddr.h>
+
+static struct pbb_writer pbb_w;
+static struct pbb_writer_interface pbb_iface;
+static struct pbb_writer_message *pbb_hello_msgwriter;
+static struct pbb_writer_content_provider pbb_cpr;
+static struct pbb_writer_tlvtype *addrtlv_type_comkey, *addrtlv_type_backlog;
+
 
 
 static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface, void *buffer, size_t buflen) {
@@ -25,10 +33,17 @@ static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface,
 }
 
 static void hello_add_msg_header(struct pbb_writer *w, struct pbb_writer_message *msg) {
-    /* TODO: include originator address once dubpd.saddr is properly set */
-    pbb_writer_set_msg_header(w, msg, 0, 0, 0, 1);
-    //pbb_writer_set_msg_header(w, msg, 1, 0, 0, 1);
-    //pbb_writer_set_msg_originator(w, msg, ???);
+    struct netaddr naddr;
+    union netaddr_socket snaddr;
+    
+    pbb_writer_set_msg_header(w, msg, 1, 0, 0, 1);
+    
+    if (dubpd.ipver == AF_INET) {memcpy(&snaddr.v4,dubpd.saddr,dubpd.saddrlen);}
+    else if (dubpd.ipver == AF_INET6) {memcpy(&snaddr.v6,dubpd.saddr,dubpd.saddrlen);} 
+    else {DUBP_LOG_ERR("Unrecognized IP version");}
+    
+    netaddr_from_socket(&naddr,&snaddr);
+    pbb_writer_set_msg_originator(w, msg, naddr.addr);
 }
 
 static void hello_fin_msg_header(struct pbb_writer *w, struct pbb_writer_message *msg, 
@@ -40,6 +55,34 @@ static void hello_fin_msg_header(struct pbb_writer *w, struct pbb_writer_message
     dubpd.hello_seqno++;
 }
 
+static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_provider *provider) {
+
+    struct netaddr naddr;
+    union netaddr_socket snaddr;
+    struct pbb_writer_address *addr;
+    
+    if (dubpd.ipver == AF_INET) {memcpy(&snaddr.v4,dubpd.saddr,dubpd.saddrlen);}
+    else if (dubpd.ipver == AF_INET6) {memcpy(&snaddr.v6,dubpd.saddr,dubpd.saddrlen);} 
+    else {DUBP_LOG_ERR("Unrecognized IP version");}
+    
+    netaddr_from_socket(&naddr,&snaddr);
+    /* TODO: set prefix length correctly */
+    addr = pbb_writer_add_address(w, provider->creator, naddr.addr, 0);
+
+    /* TODO: iterate through multiple commodities */
+    /* add a single commodity key tlv */
+    /* TODO: use a real key value */
+    uint8_t value = 0xFF;
+    pbb_writer_add_addrtlv(w, addr, addrtlv_type_comkey, &value, sizeof(value), true);
+    /* add a single commodity backlog value tlv */
+    /* TODO: use real backlog */
+    uint8_t backlog = 0xEE;
+    pbb_writer_add_addrtlv(w, addr, addrtlv_type_backlog, &backlog, sizeof(backlog), false);
+
+    /* TODO: parse through neighbor table */
+    /* TODO: foreach neighbor, list address */
+}
+
 static bool useAllIf(struct pbb_writer *w, struct pbb_writer_interface *iface, void *param) {
     return true;
 }
@@ -48,12 +91,12 @@ static bool useAllIf(struct pbb_writer *w, struct pbb_writer_interface *iface, v
 static void *hello_thread(void *arg __attribute__((unused)) ) {
 
     /* initialize packetbb writer */
-    struct pbb_writer pbb_w;
-    struct pbb_writer_interface pbb_iface;
-    struct pbb_writer_message *pbb_hello_msgwriter;
-
     size_t mtu = 128;
-    uint8_t addr_len = 4;  /* TODO: remove assumption of IPv4 */
+    uint8_t addr_len;
+
+    if (dubpd.ipver == AF_INET) {addr_len = 4;}
+    else if (dubpd.ipver == AF_INET6) {addr_len = 16;}
+    else {DUBP_LOG_ERR("Unrecognized IP version");}
 
     if (pbb_writer_init(&pbb_w, mtu, 3*mtu) < 0) {
         DUBP_LOG_ERR("Unable to initialize packetbb writer");
@@ -77,6 +120,14 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
     /* set callbacks for message writing */
     pbb_hello_msgwriter->addMessageHeader = hello_add_msg_header;
     pbb_hello_msgwriter->finishMessageHeader = hello_fin_msg_header;
+
+    pbb_writer_register_msgcontentprovider(&pbb_w, &pbb_cpr, DUBP_MSG_TYPE_HELLO, 1);
+    addrtlv_type_comkey = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_COMKEY, 0);
+    addrtlv_type_backlog = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_BACKLOG, 0);
+
+    pbb_cpr.addMessageTLVs = NULL;
+    pbb_cpr.finishMessageTLVs = NULL;
+    pbb_cpr.addAddresses = hello_add_addresses;
 
     while (1) {
 
