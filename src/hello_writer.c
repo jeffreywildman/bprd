@@ -7,18 +7,17 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "dubp.h"
-#include "logger.h"
-
 #include <packetbb/pbb_writer.h>
 #include <common/netaddr.h>
+
+#include "dubp.h"
+#include "logger.h"
 
 static struct pbb_writer pbb_w;
 static struct pbb_writer_interface pbb_iface;
 static struct pbb_writer_message *pbb_hello_msgwriter;
 static struct pbb_writer_content_provider pbb_cpr;
 static struct pbb_writer_tlvtype *addrtlv_type_comkey, *addrtlv_type_backlog;
-
 
 
 static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface, void *buffer, size_t buflen) {

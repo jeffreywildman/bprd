@@ -15,7 +15,8 @@
 #define IPPORT_MANET 269   /* if running over SOCK_DGRAM */
 
 #define DUBP_DEFAULT_INTERFACE "eth0"
-#define DUBP_DEFAULT_HELLO_INTERVAL 1  /* seconds */
+#define DUBP_DEFAULT_HELLO_INTERVAL 1   /* seconds */
+#define DUBP_DEFAULT_NEIGHBOR_TIMEOUT 5 /* # of missed hello messages */
 
 /* TODO: move this into a config.h */
 #define DUBP_DEFAULT_PIDLEN 25
@@ -50,9 +51,10 @@ struct dubp {
     uint16_t hello_seqno;
 
     /* timers */
-    unsigned int hello_interval; 
-
-    /* TODO: do i need to keep a reference to my address? */
+    uint8_t hello_interval;     /* seconds */
+    uint8_t neighbor_timeout;   /* seconds */
+   
+    /* commodity table */
     commodityhead_t chead;  /* my commodity list */
     uint8_t csize;          /* size of my commodity list */
     /* TODO: do i need a mutex for my commodity list? */

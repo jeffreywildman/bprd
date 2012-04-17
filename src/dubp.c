@@ -318,6 +318,7 @@ void dubp_init(int argc, char **argv) {
 
     /* timers */
     dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
+    dubpd.neighbor_timeout = dubpd.hello_interval * DUBP_DEFAULT_NEIGHBOR_TIMEOUT;
 
     dubpd.hello_seqno = 0;
 

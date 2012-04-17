@@ -19,6 +19,7 @@ typedef LIST_HEAD(neighborhead, neighbor) neighborhead_t;
 typedef struct neighbor {
     uint8_t address;        /* address of the neighbor */
     uint8_t bidir;          /* boolean integer indicating a bidirectional link to neighbor */
+    time_t update_time;     /* time last updated */ 
     commodityhead_t chead;  /* commodity list of neighbor */
     uint8_t csize;          /* number of commodities at neighbor */
     LIST_ENTRY(neighbor) neighbors;
