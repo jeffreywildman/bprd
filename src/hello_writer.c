@@ -60,26 +60,34 @@ static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_
     union netaddr_socket snaddr;
     struct pbb_writer_address *addr;
     
+    /* add my address to message */
     if (dubpd.ipver == AF_INET) {memcpy(&snaddr.v4,dubpd.saddr,dubpd.saddrlen);}
     else if (dubpd.ipver == AF_INET6) {memcpy(&snaddr.v6,dubpd.saddr,dubpd.saddrlen);} 
-    else {DUBP_LOG_ERR("Unrecognized IP version");}
-    
+    else {DUBP_LOG_ERR("Unrecognized IP version");} 
     netaddr_from_socket(&naddr,&snaddr);
     /* TODO: set prefix length correctly */
+    /* for now, use whole address */
     addr = pbb_writer_add_address(w, provider->creator, naddr.addr, 0);
 
-    /* TODO: iterate through multiple commodities */
-    /* add a single commodity key tlv */
-    /* TODO: use a real key value */
-    uint8_t value = 0xFF;
-    pbb_writer_add_addrtlv(w, addr, addrtlv_type_comkey, &value, sizeof(value), true);
-    /* add a single commodity backlog value tlv */
-    /* TODO: use real backlog */
-    uint8_t backlog = 0xEE;
-    pbb_writer_add_addrtlv(w, addr, addrtlv_type_backlog, &backlog, sizeof(backlog), false);
+    /* add my commodities to message */
+    /* TODO: mutex lock commodity list? */
+    commodity_t *c;
+    for (c = LIST_FIRST(&dubpd.chead); c != NULL; c = LIST_NEXT(c, commodities)) {
+        pbb_writer_add_addrtlv(w, addr, addrtlv_type_comkey, &c->addr, sizeof(c->addr), true);
+        pbb_writer_add_addrtlv(w, addr, addrtlv_type_backlog, &c->backlog, sizeof(c->backlog), true);
+    }   
 
-    /* TODO: parse through neighbor table */
-    /* TODO: foreach neighbor, list address */
+    ntable_mutex_lock(&dubpd.ntable);
+    /* refresh neighbor list */
+    nlist_refresh(&dubpd.ntable.nhead); 
+    /* add my neighbors to message */
+    neighbor_t *n;
+    for (n = LIST_FIRST(&dubpd.ntable.nhead); n != NULL; n = LIST_NEXT(n, neighbors)) {
+        /* TODO: set prefix length correctly */
+        /* for now, use whole address */
+        pbb_writer_add_address(w, provider->creator, n->addr.addr, 0);
+    }
+    ntable_mutex_unlock(&dubpd.ntable);
 }
 
 static bool useAllIf(struct pbb_writer *w, struct pbb_writer_interface *iface, void *param) {
@@ -133,7 +141,7 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
         pbb_writer_create_message(&pbb_w, DUBP_MSG_TYPE_HELLO, useAllIf, NULL);
         pbb_writer_flush(&pbb_w, &pbb_iface, false);
 
-        /* TODO: generalize hello message interval */
+        /* TODO: allow interval to be fractions of a second */
         sleep(dubpd.hello_interval);
     }
 

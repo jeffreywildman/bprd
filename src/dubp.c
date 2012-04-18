@@ -20,6 +20,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <common/netaddr.h>
+
 #include "pidfile.h"
 #include "logger.h"
 #include "hello.h"
@@ -329,6 +331,19 @@ void dubp_init(int argc, char **argv) {
     clist_init(&dubpd.chead);
     /* TODO: initialize my commodity list */
     /* TODO: link in with Bradford's code here to initialize */
+    /* TODO: remove these test commodities */
+    commodity_t *com = (commodity_t *)malloc(sizeof(commodity_t));
+    if (netaddr_from_string(&com->addr, "192.168.1.200") < 0) {
+        DUBP_LOG_ERR("Unable to convert string to address");
+    }
+    com->backlog = 0x77;
+    LIST_INSERT_HEAD(&dubpd.chead, com, commodities);
+    com = (commodity_t *)malloc(sizeof(commodity_t));
+    if (netaddr_from_string(&com->addr, "192.168.1.201") < 0) {
+        DUBP_LOG_ERR("Unable to convert string to address");
+    }
+    com->backlog = 0x78;
+    LIST_INSERT_HEAD(&dubpd.chead, com, commodities);
 
     /* initialize my neighbor table */
     ntable_mutex_init(&dubpd.ntable);

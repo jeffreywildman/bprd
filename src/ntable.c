@@ -115,6 +115,7 @@ void nlist_insert(neighborhead_t *nhead, neighbor_t *n) {
 
 
 /* remove any entries with update_time too stale
+TODO: allow timeout to be fractions of a second
  */
 void nlist_refresh(neighborhead_t *nhead) {
 
