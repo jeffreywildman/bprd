@@ -29,7 +29,7 @@
 
 
 /* dubpd instance */
-struct dubp {
+typedef struct dubp {
     char    *program;       /* program name */
     int     dmode;    
     int     ipver;         
@@ -56,13 +56,14 @@ struct dubp {
    
     /* commodity table */
     commodityhead_t chead;  /* my commodity list */
-    uint8_t csize;          /* size of my commodity list */
     /* TODO: do i need a mutex for my commodity list? */
 
     /* neighbor table */
-    neighbor_table_t ntable;
+    neighbortable_t ntable;
 
-} dubpd;
+} dubp_t;
+
+extern dubp_t dubpd;
 
 
 #endif /* __DUBP_H */

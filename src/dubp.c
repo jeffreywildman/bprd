@@ -26,6 +26,21 @@
 #include "ntable.h"
 #include "util.h"
 
+/* pre-initialization of runtime variables */
+dubp_t dubpd = {
+.program = NULL,
+.dmode = 0,
+.ipver = AF_INET,
+.confile = NULL,
+.pidfile = NULL,
+.sockfd = -1,
+.if_name = NULL,
+.saddr = NULL,
+.saddrlen = 0,
+.maddr = NULL,
+.maddrlen = 0
+};
+
 
 static void usage() {
     printf("\nUsage:\t%s [OPTION]...\n",dubpd.program);
@@ -159,18 +174,7 @@ void dubp_init(int argc, char **argv) {
 
     int c;
 
-    /* pre-initialization of runtime variables */
     dubpd.program = argv[0];
-    dubpd.dmode = 0;
-    dubpd.ipver = AF_INET;
-    dubpd.confile = NULL;
-    dubpd.pidfile = NULL;
-    dubpd.sockfd = -1;
-    dubpd.if_name = NULL;
-    dubpd.saddr = NULL;
-    dubpd.saddrlen = 0;
-    dubpd.maddr = NULL;
-    dubpd.maddrlen = 0;
 
     int lo_index;
     static struct option config_option[] = {
@@ -322,13 +326,15 @@ void dubp_init(int argc, char **argv) {
 
     dubpd.hello_seqno = 0;
 
+    clist_init(&dubpd.chead);
     /* TODO: initialize my commodity list */
-    LIST_INIT(&dubpd.chead);
-    dubpd.csize = 0;
+    /* TODO: link in with Bradford's code here to initialize */
 
-    /* TODO: initialize my neighbor table - remember mutex lock! */
-    ntable_init(&dubpd.ntable);
-
+    /* initialize my neighbor table */
+    ntable_mutex_init(&dubpd.ntable);
+    ntable_mutex_lock(&dubpd.ntable);
+    nlist_init(&dubpd.ntable.nhead);
+    ntable_mutex_unlock(&dubpd.ntable);
 }
 
 
