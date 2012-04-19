@@ -31,6 +31,7 @@ static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface,
     }
 }
 
+
 static void hello_add_msg_header(struct pbb_writer *w, struct pbb_writer_message *msg) {
     struct netaddr naddr;
     union netaddr_socket snaddr;
@@ -45,6 +46,7 @@ static void hello_add_msg_header(struct pbb_writer *w, struct pbb_writer_message
     pbb_writer_set_msg_originator(w, msg, naddr.addr);
 }
 
+
 static void hello_fin_msg_header(struct pbb_writer *w, struct pbb_writer_message *msg, 
                                  struct pbb_writer_address *first_addr, 
                                  struct pbb_writer_address *last_addr, 
@@ -53,6 +55,7 @@ static void hello_fin_msg_header(struct pbb_writer *w, struct pbb_writer_message
     /* TODO: proper seqno rollover detection and handling */
     dubpd.hello_seqno++;
 }
+
 
 static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_provider *provider) {
 
@@ -67,7 +70,7 @@ static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_
     netaddr_from_socket(&naddr,&snaddr);
     /* TODO: set prefix length correctly */
     /* for now, use whole address */
-    addr = pbb_writer_add_address(w, provider->creator, naddr.addr, 0);
+    addr = pbb_writer_add_address(w, provider->creator, naddr.addr, naddr.prefix_len);
 
     /* add my commodities to message */
     /* TODO: mutex lock commodity list? */
@@ -85,20 +88,21 @@ static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_
     for (n = LIST_FIRST(&dubpd.ntable.nhead); n != NULL; n = LIST_NEXT(n, neighbors)) {
         /* TODO: set prefix length correctly */
         /* for now, use whole address */
-        pbb_writer_add_address(w, provider->creator, n->addr.addr, 0);
+        pbb_writer_add_address(w, provider->creator, n->addr.addr, n->addr.prefix_len);
     }
     ntable_mutex_unlock(&dubpd.ntable);
 }
+
 
 static bool useAllIf(struct pbb_writer *w, struct pbb_writer_interface *iface, void *param) {
     return true;
 }
 
-/* loop endlessly and send hello messages */
-static void *hello_thread(void *arg __attribute__((unused)) ) {
+
+void hello_writer_init() {
 
     /* initialize packetbb writer */
-    size_t mtu = 128;
+    size_t mtu = 512;
     uint8_t addr_len;
 
     if (dubpd.ipver == AF_INET) {addr_len = 4;}
@@ -136,6 +140,21 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
     pbb_cpr.finishMessageTLVs = NULL;
     pbb_cpr.addAddresses = hello_add_addresses;
 
+}
+
+
+void hello_writer_destroy() {
+
+    /* TODO: implement! */
+
+}
+
+
+/* loop endlessly and send hello messages */
+static void *hello_writer_thread(void *arg __attribute__((unused)) ) {
+
+    hello_writer_init();
+
     while (1) {
 
         pbb_writer_create_message(&pbb_w, DUBP_MSG_TYPE_HELLO, useAllIf, NULL);
@@ -149,14 +168,14 @@ static void *hello_thread(void *arg __attribute__((unused)) ) {
 }
 
 
-void hello_thread_create() {
+void hello_writer_thread_create() {
 
     /* TODO: check out pthread_attr options, currently set to NULL */
-    if (pthread_create(&(dubpd.hello_tid), NULL, hello_thread, NULL) < 0) {
+    if (pthread_create(&(dubpd.hello_writer_tid), NULL, hello_writer_thread, NULL) < 0) {
         DUBP_LOG_ERR("Unable to create hello thread");
     }
 
     /* TODO: wait here until process stops? pthread_join(htdata.tid)? */
-    /* TODO: handle the case where hello thread stops  - encapsulate in while(1) - restart hello thread? */
+    /* TODO: handle the case where hello writer thread stops  - encapsulate in while(1) - restart hello thread? */
 
 }

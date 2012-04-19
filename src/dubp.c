@@ -333,32 +333,55 @@ void dubp_init(int argc, char **argv) {
     /* TODO: link in with Bradford's code here to initialize */
     /* TODO: remove these test commodities */
     commodity_t *com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->addr, "192.168.1.200") < 0) {
+    if (netaddr_from_string(&com->addr, "192.168.1.200/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
     com->backlog = 0x77;
-    LIST_INSERT_HEAD(&dubpd.chead, com, commodities);
+    clist_insert(&dubpd.chead, com);
     com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->addr, "192.168.1.201") < 0) {
+    if (netaddr_from_string(&com->addr, "192.168.1.201/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
     com->backlog = 0x78;
-    LIST_INSERT_HEAD(&dubpd.chead, com, commodities);
+    clist_insert(&dubpd.chead, com);
 
     /* initialize my neighbor table */
     ntable_mutex_init(&dubpd.ntable);
     ntable_mutex_lock(&dubpd.ntable);
     nlist_init(&dubpd.ntable.nhead);
+    
+    /* TODO: remove these test neighbors */
+    /* neighbor 1, no commodity */
+    neighbor_t *n = (neighbor_t *)malloc(sizeof(neighbor_t));
+    if (netaddr_from_string(&n->addr, "192.168.1.220/24") < 0) {
+        DUBP_LOG_ERR("Unable to convert string address");
+    }
+    n->bidir = 0;
+    n->update_time = time(NULL);
+    clist_init(&n->chead);
+    nlist_insert(&dubpd.ntable.nhead, n);
+
+    /* neighbor 2, one commodity */
+    n = (neighbor_t *)malloc(sizeof(neighbor_t));
+    if (netaddr_from_string(&n->addr, "192.168.1.221/24") < 0) {
+        DUBP_LOG_ERR("Unable to convert string address");
+    }
+    n->bidir = 0;
+    n->update_time = time(NULL);
+    clist_init(&n->chead);
+    com = (commodity_t *)malloc(sizeof(commodity_t));
+    if (netaddr_from_string(&com->addr, "192.168.1.200/24") < 0) {
+        DUBP_LOG_ERR("Unable to convert string to address");
+    }
+    com->backlog = 0xAA;
+    clist_insert(&n->chead, com);
+    nlist_insert(&dubpd.ntable.nhead, n);
+
     ntable_mutex_unlock(&dubpd.ntable);
 }
 
 
 int main(int argc, char **argv) {
-
-    struct sockaddr saddr; 
-    socklen_t saddr_len;
-    hellomsg_t hello;
-
 
     /* initialize logging */
     log_init();
@@ -372,19 +395,14 @@ int main(int argc, char **argv) {
     /* start up socket */
     socket_init();
 
-    /* start the hello thread */
-    hello_thread_create();
+    /* start the hello threads */
+    hello_reader_thread_create();
+    hello_writer_thread_create();
 
     /* just hang out here for a while */
+    /* TODO: this 'thread' will periodically poll commodity data, 
+       update backlogs, set routes, release data packets to kernel */
     while(1) {
-
-        /* block while reading from socket */
-        /* TODO: use packetbb to read packets! */
-        //if (recvfrom(dubpd.sockfd, &hello, sizeof(hello), 0, &saddr, &saddr_len) < 0) {
-        //    DUBP_LOG_ERR("Unable to receive hello!");
-        //} else {
-        //    DUBP_LOG_DBG("Received hello message");
-        //}
 
         sleep(1);
     }

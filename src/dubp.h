@@ -47,7 +47,8 @@ typedef struct dubp {
     uint8_t maddrlen;           /* size of multicast address structure */
 
     /* hello thread data */   
-    pthread_t hello_tid;
+    pthread_t hello_writer_tid;
+    pthread_t hello_reader_tid;
     uint16_t hello_seqno;
 
     /* timers */
