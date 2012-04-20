@@ -17,7 +17,7 @@ static struct pbb_writer pbb_w;
 static struct pbb_writer_interface pbb_iface;
 static struct pbb_writer_message *pbb_hello_msgwriter;
 static struct pbb_writer_content_provider pbb_cpr;
-static struct pbb_writer_tlvtype *addrtlv_type_comkey, *addrtlv_type_backlog;
+//static struct pbb_writer_tlvtype *addrtlv_type_comkey, *addrtlv_type_backlog;
 
 
 static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface, void *buffer, size_t buflen) {
@@ -57,29 +57,28 @@ static void hello_fin_msg_header(struct pbb_writer *w, struct pbb_writer_message
 }
 
 
-static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_provider *provider) {
+static void hello_add_msgtlvs(struct pbb_writer *w, struct pbb_writer_content_provider *provider) {
 
-    struct netaddr naddr;
-    union netaddr_socket snaddr;
-    struct pbb_writer_address *addr;
-    
-    /* add my address to message */
-    if (dubpd.ipver == AF_INET) {memcpy(&snaddr.v4,dubpd.saddr,dubpd.saddrlen);}
-    else if (dubpd.ipver == AF_INET6) {memcpy(&snaddr.v6,dubpd.saddr,dubpd.saddrlen);} 
-    else {DUBP_LOG_ERR("Unrecognized IP version");} 
-    netaddr_from_socket(&naddr,&snaddr);
-    /* TODO: set prefix length correctly */
-    /* for now, use whole address */
-    addr = pbb_writer_add_address(w, provider->creator, naddr.addr, naddr.prefix_len);
+    uint8_t addr_len;
+
+    if (dubpd.ipver == AF_INET) {addr_len = 4;}
+    else if (dubpd.ipver == AF_INET6) {addr_len = 16;}
+    else {DUBP_LOG_ERR("Unrecognized IP version");}
 
     /* add my commodities to message */
     /* TODO: mutex lock commodity list? */
     commodity_t *c;
     for (c = LIST_FIRST(&dubpd.chead); c != NULL; c = LIST_NEXT(c, commodities)) {
-        pbb_writer_add_addrtlv(w, addr, addrtlv_type_comkey, &c->addr, sizeof(c->addr), true);
-        pbb_writer_add_addrtlv(w, addr, addrtlv_type_backlog, &c->backlog, sizeof(c->backlog), true);
+        pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_COMKEY, 0, &c->addr.addr, addr_len);
+        pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_BACKLOG, 0, &c->backlog, sizeof(c->backlog));
     }   
 
+}
+
+static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_provider *provider) {
+
+    struct pbb_writer_address *addr;
+    
     ntable_mutex_lock(&dubpd.ntable);
     /* refresh neighbor list */
     nlist_refresh(&dubpd.ntable.nhead); 
@@ -88,7 +87,7 @@ static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_
     for (n = LIST_FIRST(&dubpd.ntable.nhead); n != NULL; n = LIST_NEXT(n, neighbors)) {
         /* TODO: set prefix length correctly */
         /* for now, use whole address */
-        pbb_writer_add_address(w, provider->creator, n->addr.addr, n->addr.prefix_len);
+        addr = pbb_writer_add_address(w, provider->creator, n->addr.addr, n->addr.prefix_len);
     }
     ntable_mutex_unlock(&dubpd.ntable);
 }
@@ -133,10 +132,10 @@ void hello_writer_init() {
     pbb_hello_msgwriter->finishMessageHeader = hello_fin_msg_header;
 
     pbb_writer_register_msgcontentprovider(&pbb_w, &pbb_cpr, DUBP_MSG_TYPE_HELLO, 1);
-    addrtlv_type_comkey = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_COMKEY, 0);
-    addrtlv_type_backlog = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_BACKLOG, 0);
+    //addrtlv_type_comkey = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_COMKEY, 0);
+    //addrtlv_type_backlog = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_BACKLOG, 0);
 
-    pbb_cpr.addMessageTLVs = NULL;
+    pbb_cpr.addMessageTLVs = hello_add_msgtlvs;
     pbb_cpr.finishMessageTLVs = NULL;
     pbb_cpr.addAddresses = hello_add_addresses;
 
