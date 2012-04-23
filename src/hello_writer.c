@@ -17,7 +17,6 @@ static struct pbb_writer pbb_w;
 static struct pbb_writer_interface pbb_iface;
 static struct pbb_writer_message *pbb_hello_msgwriter;
 static struct pbb_writer_content_provider pbb_cpr;
-//static struct pbb_writer_tlvtype *addrtlv_type_comkey, *addrtlv_type_backlog;
 
 
 static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface, void *buffer, size_t buflen) {
@@ -132,8 +131,6 @@ void hello_writer_init() {
     pbb_hello_msgwriter->finishMessageHeader = hello_fin_msg_header;
 
     pbb_writer_register_msgcontentprovider(&pbb_w, &pbb_cpr, DUBP_MSG_TYPE_HELLO, 1);
-    //addrtlv_type_comkey = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_COMKEY, 0);
-    //addrtlv_type_backlog = pbb_writer_register_addrtlvtype(&pbb_w, DUBP_MSG_TYPE_HELLO, DUBP_ADDRTLV_TYPE_BACKLOG, 0);
 
     pbb_cpr.addMessageTLVs = hello_add_msgtlvs;
     pbb_cpr.finishMessageTLVs = NULL;

@@ -8,6 +8,25 @@
 #include <common/netaddr.h>
 typedef struct netaddr netaddr_t;
 
+//typedef struct commodity {
+//    netaddr_t addr;     /* destination address of the commodity */
+//    uint8_t backlog;    /* backlog associated with the commodity */
+//} commodity_t;
+//
+//typedef struct neighbor {
+//    netaddr_t addr;         /* address of the neighbor */
+//    uint8_t bidir;          /* boolean integer indicating a bidirectional link to neighbor */
+//    time_t update_time;     /* time last updated */ 
+//    commodityhead_t chead;  /* commodity list of neighbor */
+//} neighbor_t;
+//
+//typedef LIST_HEAD(list_head, list_elm) list_head_t;
+//typedef struct list_elm {
+//    void *data;
+//    LIST_ENTRY(list_elm) list_elms;
+//} list_elm_t;
+
+
 /* commodity list definitions */
 typedef LIST_HEAD(commodityhead, commodity) commodityhead_t;
 typedef struct commodity {

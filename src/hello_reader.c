@@ -1,6 +1,7 @@
 #include "hello.h"
 
 #include <stdint.h>
+#include <stdlib.h>
 #include <pthread.h>
 
 #include <packetbb/pbb_reader.h>
@@ -16,10 +17,83 @@ static struct pbb_reader_tlvblock_consumer pbb_pkt_cons, pbb_msg_cons, pbb_addr_
 
 void hello_recv(uint8_t *buf, size_t buflen) {
 
-
     pbb_reader_handle_packet(&pbb_r, buf, buflen);
 
 }
+
+
+static neighbor_t *n;
+
+static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)), 
+                                          struct pbb_reader_tlvblock_context *context) {
+    assert (context->type == PBB_CONTEXT_MESSAGE);
+
+    /* TODO: softer error handling */
+    assert (context->msg_type == DUBP_MSG_TYPE_HELLO);
+    assert (context->has_origaddr);
+
+    /* grab source address and access neighbor table */
+    netaddr_t naddr; 
+    netaddr_from_binary(&naddr, context->orig_addr, context->addr_len, dubpd.ipver);
+
+    
+    ntable_mutex_lock(&dubpd.ntable);
+    /* find existing neighbor or create new one */
+    n = nlist_find(&dubpd.ntable.nhead, &naddr);
+    if (n == NULL) {
+        n = (neighbor_t *)malloc(sizeof(neighbor_t));
+        n->addr = naddr;
+        n->bidir = 0;
+        clist_init(&n->chead);
+        nlist_insert(&dubpd.ntable.nhead, n);
+    }
+    /* update neighbor with new commodity values */
+    n->update_time = time(NULL);
+    ntable_mutex_unlock(&dubpd.ntable);
+
+    return PBB_OKAY;
+}
+
+
+#include <stdio.h>
+static void print_hexline(void *buffer, size_t length) {
+    size_t i;
+    uint8_t *buf = buffer;
+
+    for (i=0; i<length; i++) {
+        printf("%s%02x", ((i&3) == 0) ? " " : "", (int)(buf[i]));
+    }
+}
+static size_t min_sizet(size_t a, size_t b) {
+    return a < b ? a : b;
+}
+static void printhex(const char *prefix, void *buffer, size_t length) {
+    size_t j;
+    uint8_t *buf = buffer;
+
+    for (j=0; j<length; j+=32) {
+        printf("%s%04zx:", prefix, j);
+
+        print_hexline(&buf[j], min_sizet(length-j, 32));
+        printf("\n");
+    }
+}
+
+
+static enum pbb_result hello_cons_msg_tlv(struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)),
+                                          struct pbb_reader_tlvblock_entry *tlv,
+                                          struct pbb_reader_tlvblock_context *context) {
+    assert (context->type == PBB_CONTEXT_MESSAGE);
+
+    printf("      TLV %d (%d)", tlv->type, tlv->type_ext);
+    if (tlv->length > 0) {
+        printf("          value length: %d\n", tlv->length);
+        printhex("          ", tlv->single_value, tlv->length);
+    }
+    printf("\n");
+    return PBB_OKAY;
+}
+
 
 
 void hello_reader_init() {
@@ -33,8 +107,8 @@ void hello_reader_init() {
 
     /* hello message consumer */
     pbb_reader_add_message_consumer(&pbb_r, &pbb_msg_cons, NULL, 0, DUBP_MSG_TYPE_HELLO, 0);
-    pbb_msg_cons.start_callback = NULL;
-    pbb_msg_cons.tlv_callback = NULL;
+    pbb_msg_cons.start_callback = hello_cons_msg_start;
+    pbb_msg_cons.tlv_callback = hello_cons_msg_tlv;
 
     /* hello message address consumer */
     pbb_reader_add_address_consumer(&pbb_r, &pbb_addr_cons, NULL, 0, DUBP_MSG_TYPE_HELLO, 0);
@@ -61,8 +135,8 @@ static void *hello_reader_thread(void *arg __attribute__((unused)) ) {
             DUBP_LOG_ERR("Unable to receive hello!");
         } else {
             DUBP_LOG_DBG("Received hello message");
-            /* confirm that packet came from correct MCAST protocol, addr, and port */
-            /* call hello_recv(buf, buflen) here */
+            /* TODO: confirm that packet came from correct MCAST protocol, addr, and port */
+            hello_recv(buf, buflen);
         }
     }
 
