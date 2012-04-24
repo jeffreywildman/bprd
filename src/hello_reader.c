@@ -18,8 +18,10 @@ static struct pbb_reader_tlvblock_consumer pbb_pkt_cons, pbb_msg_cons, pbb_addr_
 
 void hello_recv(uint8_t *buf, size_t buflen) {
 
+    /* lock neighbor table while processing message */
+    ntable_mutex_lock(&dubpd.ntable);
     pbb_reader_handle_packet(&pbb_r, buf, buflen);
-
+    ntable_mutex_unlock(&dubpd.ntable);
 }
 
 
@@ -37,8 +39,8 @@ static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer
     neighbor_t ntemp;
     netaddr_from_binary(&ntemp.addr, context->orig_addr, context->addr_len, dubpd.ipver);
 
+    /* TODO: ignore my own hello messages! */
     
-    ntable_mutex_lock(&dubpd.ntable);
     /* find existing neighbor with matching address or create new one */
     n = nlist_find(&dubpd.ntable.nlist, &ntemp);
     if (n == NULL) {
@@ -49,7 +51,6 @@ static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer
         list_insert(&dubpd.ntable.nlist, n);
     }
     n->update_time = time(NULL);
-    ntable_mutex_unlock(&dubpd.ntable);
 
     return PBB_OKAY;
 }
@@ -85,12 +86,23 @@ static enum pbb_result hello_cons_msg_tlv(struct pbb_reader_tlvblock_consumer *c
                                           struct pbb_reader_tlvblock_context *context) {
     assert (context->type == PBB_CONTEXT_MESSAGE);
 
-    printf("      TLV %d (%d)", tlv->type, tlv->type_ext);
-    if (tlv->length > 0) {
-        printf("          value length: %d\n", tlv->length);
-        printhex("          ", tlv->single_value, tlv->length);
+    commodity_t *com, *comtemp;
+
+    /* read in commodities for the neighbor */
+    if (tlv->type == DUBP_MSGTLV_TYPE_COM && tlv->length == sizeof(commodity_t)) {
+        comtemp = (commodity_t *)tlv->single_value;
+        /* try to find commodity in neighbor commodity list or create new one */
+        com = clist_find(&n->clist, comtemp);
+        if (com == NULL) {
+            com = (commodity_t *)malloc(sizeof(commodity_t));
+            com->addr = comtemp->addr;
+            list_insert(&n->clist, com);
+        }
+        com->backlog = comtemp->backlog;
+    } else {
+        DUBP_LOG_ERR("Unrecognized TLV parameters");
     }
-    printf("\n");
+
     return PBB_OKAY;
 }
 
