@@ -56,7 +56,7 @@ typedef struct dubp {
     uint8_t neighbor_timeout;   /* seconds */
    
     /* commodity table */
-    commodityhead_t chead;  /* my commodity list */
+    list_t clist;               /* my commodity list */
     /* TODO: do i need a mutex for my commodity list? */
 
     /* neighbor table */

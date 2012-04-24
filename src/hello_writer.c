@@ -66,8 +66,10 @@ static void hello_add_msgtlvs(struct pbb_writer *w, struct pbb_writer_content_pr
 
     /* add my commodities to message */
     /* TODO: mutex lock commodity list? */
+    elm_t *e;
     commodity_t *c;
-    for (c = LIST_FIRST(&dubpd.chead); c != NULL; c = LIST_NEXT(c, commodities)) {
+    for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+        c = (commodity_t *)e->data;
         pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_COMKEY, 0, &c->addr.addr, addr_len);
         pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_BACKLOG, 0, &c->backlog, sizeof(c->backlog));
     }   
@@ -80,10 +82,12 @@ static void hello_add_addresses(struct pbb_writer *w, struct pbb_writer_content_
     
     ntable_mutex_lock(&dubpd.ntable);
     /* refresh neighbor list */
-    nlist_refresh(&dubpd.ntable.nhead); 
+    ntable_refresh(&dubpd.ntable); 
     /* add my neighbors to message */
+    elm_t *e;
     neighbor_t *n;
-    for (n = LIST_FIRST(&dubpd.ntable.nhead); n != NULL; n = LIST_NEXT(n, neighbors)) {
+    for (e = LIST_FIRST(&dubpd.ntable.nlist); e != NULL; e = LIST_NEXT(e, elms)) {
+        n = (neighbor_t *)e->data;    
         /* TODO: set prefix length correctly */
         /* for now, use whole address */
         addr = pbb_writer_add_address(w, provider->creator, n->addr.addr, n->addr.prefix_len);

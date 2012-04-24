@@ -328,7 +328,7 @@ void dubp_init(int argc, char **argv) {
 
     dubpd.hello_seqno = 0;
 
-    clist_init(&dubpd.chead);
+    list_init(&dubpd.clist);
     /* TODO: initialize my commodity list */
     /* TODO: link in with Bradford's code here to initialize */
     /* TODO: remove these test commodities */
@@ -337,18 +337,18 @@ void dubp_init(int argc, char **argv) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
     com->backlog = 0x77;
-    clist_insert(&dubpd.chead, com);
+    list_insert(&dubpd.clist, com);
     com = (commodity_t *)malloc(sizeof(commodity_t));
     if (netaddr_from_string(&com->addr, "192.168.1.201/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
     com->backlog = 0x78;
-    clist_insert(&dubpd.chead, com);
+    list_insert(&dubpd.clist, com);
 
     /* initialize my neighbor table */
     ntable_mutex_init(&dubpd.ntable);
     ntable_mutex_lock(&dubpd.ntable);
-    nlist_init(&dubpd.ntable.nhead);
+    list_init(&dubpd.ntable.nlist);
     
     /* TODO: remove these test neighbors */
     /* neighbor 1, no commodity */
@@ -358,8 +358,8 @@ void dubp_init(int argc, char **argv) {
     }
     n->bidir = 0;
     n->update_time = time(NULL);
-    clist_init(&n->chead);
-    nlist_insert(&dubpd.ntable.nhead, n);
+    list_init(&n->clist);
+    list_insert(&dubpd.ntable.nlist, n);
 
     /* neighbor 2, one commodity */
     n = (neighbor_t *)malloc(sizeof(neighbor_t));
@@ -368,14 +368,14 @@ void dubp_init(int argc, char **argv) {
     }
     n->bidir = 0;
     n->update_time = time(NULL);
-    clist_init(&n->chead);
+    list_init(&n->clist);
     com = (commodity_t *)malloc(sizeof(commodity_t));
     if (netaddr_from_string(&com->addr, "192.168.1.200/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
     com->backlog = 0xAA;
-    clist_insert(&n->chead, com);
-    nlist_insert(&dubpd.ntable.nhead, n);
+    list_insert(&n->clist, com);
+    list_insert(&dubpd.ntable.nlist, n);
 
     ntable_mutex_unlock(&dubpd.ntable);
 }

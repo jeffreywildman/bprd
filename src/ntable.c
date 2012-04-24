@@ -10,138 +10,207 @@
 #include "logger.h"
 
 
-/* initialize commodity list
+/* initialize the list
+   l - the head of a list
  */
-void clist_init(commodityhead_t *chead) {
-    
-    assert(chead);
-    LIST_INIT(chead);
+void list_init(list_t *l) {
+
+    assert(l);
+    LIST_INIT(l);
 }
 
 
-
-/* free the commodity list
+/* insert the element into the list
+   l - the head of a list
+   data - the data to be inserted
  */
-void clist_free(commodityhead_t *chead) {
+void list_insert(list_t *l, void *data) {
 
-    while(!LIST_EMPTY(chead)) {
-        commodity_t *c = LIST_FIRST(chead);
-        LIST_REMOVE(c, commodities);
-        free(c);
+    assert(l && data);
+    elm_t *e = (elm_t *)malloc(sizeof(elm_t));
+    memset(e, 0, sizeof(elm_t));
+    e->data = data;
+    LIST_INSERT_HEAD(l, e, elms);
+}
+
+
+/* free the list 
+   l - the head of a list
+   del - function pointer to properly free (void *data) within e
+ */
+void list_free(list_t *l, void (*del_data)(void *)) {
+
+    assert(l && del_data);
+    while(!LIST_EMPTY(l)) {
+        elm_t *e = LIST_FIRST(l);
+        LIST_REMOVE(e, elms);
+        del_data(e->data);
+        free(e);
     }
 }
 
 
-/* search through the commodity list for a commodity entry with address caddr */
-/* returns a reference to the neighbor entry if found */
-/* returns NULL if neighbor entry not found */
-commodity_t *clist_find(commodityhead_t *chead, netaddr_t *caddr) {
+/* free memory associated with a commodity element 
+   e - element containing a commodity
+ */
+static void del_data_c(void *data) {
 
-    assert(chead && caddr);
+    assert(data);
+
+    commodity_t *c = (commodity_t *)data;
+    free(c);
+}
+
+
+/* commodity type-specific free list */
+void clist_free(list_t *l) {
+
+    list_free(l, del_data_c);
+}
+
+
+/* free memory associated with a neighbor element
+   e - element containing a neighbor entry
+ */
+static void del_data_n(void *data) {
+
+    assert(data);
+
+    neighbor_t *n = (neighbor_t *)data;
+    list_free(&n->clist, del_data_c);
+    free(n);
+}
+
+
+/* neighbor type-specific free list */
+void nlist_free(list_t *l) {
     
-    commodity_t *c = NULL;
+    list_free(l, del_data_n);
+}
+
+
+/* find and return the first element matching 
+ l - the head of a list
+ e - the element to be found
+ cmp - function pointer to properly compare (void *data) within elements
+ returns a reference to the neighbor entry if found
+ returns NULL if neighbor entry not found
+ */
+elm_t *list_find(list_t *l, void *data, int (*cmp_data)(void *, void *)) {
+
+    assert(l && data && cmp_data);
    
-    /* iterate through list looking for commodity with netaddr */
-    for (c = LIST_FIRST(chead); c != NULL; c = LIST_NEXT(c, commodities)) {
-        if (netaddr_cmp(&c->addr, caddr) == 0) {
-            return c;
+    elm_t *f;
+
+    /* iterate through list looking for matching element */
+    for (f = LIST_FIRST(l); f != NULL; f = LIST_NEXT(f, elms)) {
+        if (cmp_data(data, f->data) == 0) {
+            return f;
         }
     }
 
-    /* neighbor has not been found */
+    /* element has not been found */
     return NULL;
 }
 
 
-/* insert the commodity entry into the commodity list */
-void clist_insert(commodityhead_t *chead, commodity_t *c) {
-    
-    assert(chead && c);
-    LIST_INSERT_HEAD(chead, c, commodities);
-}
-
-
-/* initialize neighbor list
+/* compare commodity elements
+   e1 - element 1
+   e2 - element 2
  */
-void nlist_init(neighborhead_t *nhead) {
-    
-    assert(nhead);
-    LIST_INIT(nhead);
+static int cmp_data_c(void *data1, void *data2) {
+
+    assert(data1 && data2);
+
+    commodity_t *c1 = (commodity_t *)data1;
+    commodity_t *c2 = (commodity_t *)data2;
+
+    return netaddr_cmp(&c1->addr, &c2->addr); 
 }
 
 
-/* free the neighbor list 
+/* commodity type-specific find */
+commodity_t *clist_find(list_t *l, commodity_t *c) {
+
+    elm_t *e = list_find(l, (void *)c, cmp_data_c);
+
+    return e ? (commodity_t *)e->data : NULL;
+}
+
+
+/* compare neighbor elements
+   e1 - element 1
+   e2 - element 2
  */
-void nlist_free(neighborhead_t *nhead) {
+static int cmp_data_n(void *data1, void *data2) {
 
-    assert(nhead);
+    assert(data1 && data2);
 
-    while(!LIST_EMPTY(nhead)) {
-        neighbor_t *n = LIST_FIRST(nhead);
-        LIST_REMOVE(n, neighbors);
-        clist_free(&n->chead);
-        free(n);
-    }
+    neighbor_t *n1 = (neighbor_t *)data1;
+    neighbor_t *n2 = (neighbor_t *)data2;
+
+    return netaddr_cmp(&n1->addr, &n2->addr); 
 }
 
 
-/* search through the neighbor list for a neighbor entry with address naddr */
-/* returns a reference to the neighbor entry if found */
-/* returns NULL if neighbor entry not found */
-neighbor_t *nlist_find(neighborhead_t *nhead, netaddr_t *naddr) {
+/* neighbor type-specific find*/
+neighbor_t *nlist_find(list_t *l, neighbor_t *n) {
 
-    assert(nhead && naddr);
-    
-    neighbor_t *n = NULL;
-   
-    /* iterate through list looking for neighbor with netaddr */
-    for (n = LIST_FIRST(nhead); n != NULL; n = LIST_NEXT(n, neighbors)) {
-        if (netaddr_cmp(&n->addr, naddr) == 0) {
-            return n;
+    elm_t *e = list_find(l, (void *)n, cmp_data_n);
+
+    return e ? (neighbor_t *)e->data : NULL;
+}
+
+
+/* remove any entries that satisfy a condition */
+void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_data)(void *)) {
+     
+    assert(l && cond_data && del_data);
+
+    elm_t *eprev = NULL;
+    elm_t *ecur  = LIST_FIRST(l);
+
+    while(ecur) {
+        if (cond_data(ecur->data)) {
+            /* element meets condition, remove from list and free */
+            LIST_REMOVE(ecur, elms);
+            del_data(ecur->data);
+            free(ecur);
+            if (!eprev) {
+                ecur = LIST_FIRST(l);
+            } else {
+                ecur = LIST_NEXT(eprev, elms);
+            }
+        } else {
+            /* element does not meet condition, advance iterators */
+            eprev = ecur;
+            ecur = LIST_NEXT(ecur, elms);
         }
     }
 
-    /* neighbor has not been found */
-    return NULL;
 }
 
 
-/* insert the neighbor entry into the neighbor list */
-void nlist_insert(neighborhead_t *nhead, neighbor_t *n) {
-    
-    assert(nhead && n);
-    LIST_INSERT_HEAD(nhead, n, neighbors);
+/* condition that neighbor has gone stale */
+static int cond_n_expired(void *data) {
+
+    assert(data);
+
+    neighbor_t *n = (neighbor_t *)data;
+    return (time(NULL) - n->update_time > dubpd.neighbor_timeout);
 }
 
 
 /* remove any entries with update_time too stale
 TODO: allow timeout to be fractions of a second
  */
-void nlist_refresh(neighborhead_t *nhead) {
+void ntable_refresh(neighbortable_t *ntable) {
 
-    assert(nhead);
+    assert(ntable);
 
-    neighbor_t *nprev    = NULL;
-    neighbor_t *ncur     = LIST_FIRST(nhead);
-
-    while(ncur) {
-        if (time(NULL) - ncur->update_time > dubpd.neighbor_timeout) {
-            /* neighbor has gone stale, remove from list and free */
-            LIST_REMOVE(ncur, neighbors);
-            clist_free(&ncur->chead);
-            free(ncur);
-            if (!nprev) {
-                ncur = LIST_FIRST(nhead);
-            } else {
-                ncur = LIST_NEXT(nprev, neighbors);
-            }
-        } else {
-            /* neighbor is ok, advance iterators */
-            nprev = ncur;
-            ncur = LIST_NEXT(ncur, neighbors);
-        }
-    }
+    list_remove_cond(&ntable->nlist, cond_n_expired, del_data_n);
 }
+
 
 void ntable_mutex_init(neighbortable_t *ntable) {
 
@@ -154,7 +223,7 @@ void ntable_mutex_init(neighbortable_t *ntable) {
 
 
 void ntable_mutex_lock(neighbortable_t *ntable) {
-    
+
     assert(ntable);
 
     if (pthread_mutex_lock(&ntable->mutex) < 0) {

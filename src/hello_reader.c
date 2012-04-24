@@ -9,6 +9,7 @@
 
 #include "dubp.h"
 #include "logger.h"
+#include "ntable.h"
 
 
 static struct pbb_reader pbb_r;
@@ -22,7 +23,7 @@ void hello_recv(uint8_t *buf, size_t buflen) {
 }
 
 
-static neighbor_t *n;
+static neighbor_t *n = NULL;
 
 static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)), 
                                           struct pbb_reader_tlvblock_context *context) {
@@ -33,21 +34,20 @@ static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer
     assert (context->has_origaddr);
 
     /* grab source address and access neighbor table */
-    netaddr_t naddr; 
-    netaddr_from_binary(&naddr, context->orig_addr, context->addr_len, dubpd.ipver);
+    neighbor_t ntemp;
+    netaddr_from_binary(&ntemp.addr, context->orig_addr, context->addr_len, dubpd.ipver);
 
     
     ntable_mutex_lock(&dubpd.ntable);
-    /* find existing neighbor or create new one */
-    n = nlist_find(&dubpd.ntable.nhead, &naddr);
+    /* find existing neighbor with matching address or create new one */
+    n = nlist_find(&dubpd.ntable.nlist, &ntemp);
     if (n == NULL) {
         n = (neighbor_t *)malloc(sizeof(neighbor_t));
-        n->addr = naddr;
+        netaddr_from_binary(&n->addr, context->orig_addr, context->addr_len, dubpd.ipver);
         n->bidir = 0;
-        clist_init(&n->chead);
-        nlist_insert(&dubpd.ntable.nhead, n);
+        list_init(&n->clist);
+        list_insert(&dubpd.ntable.nlist, n);
     }
-    /* update neighbor with new commodity values */
     n->update_time = time(NULL);
     ntable_mutex_unlock(&dubpd.ntable);
 
