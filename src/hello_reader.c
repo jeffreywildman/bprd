@@ -16,11 +16,18 @@ static struct pbb_reader pbb_r;
 static struct pbb_reader_tlvblock_consumer pbb_pkt_cons, pbb_msg_cons, pbb_addr_cons;
 
 
+#include <stdio.h>
 void hello_recv(uint8_t *buf, size_t buflen) {
 
     /* lock neighbor table while processing message */
     ntable_mutex_lock(&dubpd.ntable);
+    printf("\n\nBefore Message Reception:\n");
+    ntable_print(&dubpd.ntable);
+
     pbb_reader_handle_packet(&pbb_r, buf, buflen);
+    
+    printf("\n\nAfter Message Reception:\n");
+    ntable_print(&dubpd.ntable);
     ntable_mutex_unlock(&dubpd.ntable);
 }
 
@@ -107,6 +114,38 @@ static enum pbb_result hello_cons_msg_tlv(struct pbb_reader_tlvblock_consumer *c
 }
 
 
+static enum pbb_result hello_cons_addr_start(struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)),
+                                             struct pbb_reader_tlvblock_context *context) {
+    assert (context->type == PBB_CONTEXT_ADDRESS);
+
+    /* if the one-hop neighbor is me, then the sender is bidirectional */
+    netaddr_t naddr1, naddr2; 
+    netaddr_from_binary(&naddr1, context->addr, context->addr_len, dubpd.ipver);
+    
+    netaddr_socket_t nsaddr;
+    /* temp copy */
+    /* TODO: do this once and save in dubpd struct during init */
+    nsaddr.std = *dubpd.saddr; 
+    netaddr_from_socket(&naddr2, &nsaddr);
+
+    if (netaddr_cmp(&naddr1, &naddr2) == 0) {
+        n->bidir = 1; 
+    }
+
+    return PBB_OKAY;
+}
+
+
+static enum pbb_result hello_cons_addr_tlv(struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)),
+                                           struct pbb_reader_tlvblock_entry *tlv,
+                                           struct pbb_reader_tlvblock_context *context) {
+    assert (context->type == PBB_CONTEXT_ADDRESS);
+
+    DUBP_LOG_ERR("Addresses should not have tlv's!");
+
+    return PBB_OKAY;
+}
+
 
 void hello_reader_init() {
 
@@ -124,8 +163,8 @@ void hello_reader_init() {
 
     /* hello message address consumer */
     pbb_reader_add_address_consumer(&pbb_r, &pbb_addr_cons, NULL, 0, DUBP_MSG_TYPE_HELLO, 0);
-    pbb_addr_cons.start_callback = NULL;
-    pbb_addr_cons.tlv_callback = NULL;
+    pbb_addr_cons.start_callback = hello_cons_addr_start;
+    pbb_addr_cons.tlv_callback = hello_cons_addr_tlv;
 
 }
 

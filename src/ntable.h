@@ -6,6 +6,10 @@
 #include <sys/types.h>
 
 #include <common/netaddr.h>
+typedef struct netaddr netaddr_t;
+typedef union netaddr_socket netaddr_socket_t;
+typedef struct netaddr_str netaddr_str_t;
+
 
 /* TODO: move list functions into separate file */
 /* list definitions */
@@ -23,7 +27,6 @@ extern elm_t *list_find(list_t *l, void *data, int (*cmp_data)(void *, void *));
 extern void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_data)(void *));
 
 
-typedef struct netaddr netaddr_t;
 /* commodity definition */
 typedef struct commodity {
     netaddr_t addr;     /* destination address of the commodity */
@@ -55,6 +58,6 @@ extern void ntable_refresh(neighbortable_t *ntable);
 extern void ntable_mutex_init(neighbortable_t *ntable);
 extern void ntable_mutex_lock(neighbortable_t *ntable); 
 extern void ntable_mutex_unlock(neighbortable_t *ntable);
-
+extern void ntable_print(neighbortable_t *ntable);
 
 #endif /* __NTABLE_H */

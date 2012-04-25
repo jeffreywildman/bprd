@@ -240,3 +240,35 @@ void ntable_mutex_unlock(neighbortable_t *ntable) {
         DUBP_LOG_ERR("Unable to lock ntable mutex");   
     }
 }
+
+
+#include <stdio.h>
+void ntable_print(neighbortable_t *ntable) {
+
+    elm_t *e,*f;
+    time_t t;
+    neighbor_t *n;
+    commodity_t *c;
+    netaddr_str_t naddr_str;
+
+    assert(ntable);
+   
+    t = time(NULL);
+    printf("Neighbor Table, Current Time: %s\n", asctime(localtime(&t)));
+    /* iterate through list looking for matching element */
+    for (e = LIST_FIRST(&ntable->nlist); e != NULL; e = LIST_NEXT(e, elms)) {
+        assert(e->data);
+        n = (neighbor_t *)e->data;
+        printf("\tAddress: %s\n", netaddr_to_string(&naddr_str, &n->addr));
+        printf("\tBidir: %u\n", n->bidir);
+        printf("\tUpdate Time: %s", asctime(localtime(&n->update_time)));
+        printf("\tCommodities:");
+        LIST_EMPTY(&n->clist) ? printf(" NONE\n") : printf("\n");
+        for (f = LIST_FIRST(&n->clist); f != NULL; f = LIST_NEXT(f, elms)) {
+            assert(f->data);
+            c = (commodity_t *)f->data;
+            printf("\t\tDest: %s \t Backlog: %u\n", netaddr_to_string(&naddr_str, &c->addr), c->backlog);
+        }
+        printf("\n");
+    }
+}
