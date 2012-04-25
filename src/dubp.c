@@ -25,6 +25,7 @@
 #include "pidfile.h"
 #include "logger.h"
 #include "hello.h"
+#include "backlogger.h"
 #include "ntable.h"
 #include "util.h"
 
@@ -394,6 +395,9 @@ int main(int argc, char **argv) {
 
     /* start up socket */
     socket_init();
+
+    /* start up backlog thread */
+    backlogger_thread_create();
 
     /* start the hello threads */
     hello_reader_thread_create();

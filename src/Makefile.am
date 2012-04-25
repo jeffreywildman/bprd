@@ -10,6 +10,7 @@ dubpd_SOURCES = dubp.c \
 				logger.c \
 				hello_reader.c \
 				hello_writer.c \
-				ntable.c
+				ntable.c \
+				backlogger.c
 
 MAINTAINERCLEANFILES = Makefile.in

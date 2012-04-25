@@ -63,31 +63,6 @@ static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer
 }
 
 
-#include <stdio.h>
-static void print_hexline(void *buffer, size_t length) {
-    size_t i;
-    uint8_t *buf = buffer;
-
-    for (i=0; i<length; i++) {
-        printf("%s%02x", ((i&3) == 0) ? " " : "", (int)(buf[i]));
-    }
-}
-static size_t min_sizet(size_t a, size_t b) {
-    return a < b ? a : b;
-}
-static void printhex(const char *prefix, void *buffer, size_t length) {
-    size_t j;
-    uint8_t *buf = buffer;
-
-    for (j=0; j<length; j+=32) {
-        printf("%s%04zx:", prefix, j);
-
-        print_hexline(&buf[j], min_sizet(length-j, 32));
-        printf("\n");
-    }
-}
-
-
 static enum pbb_result hello_cons_msg_tlv(struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)),
                                           struct pbb_reader_tlvblock_entry *tlv,
                                           struct pbb_reader_tlvblock_context *context) {
@@ -137,7 +112,7 @@ static enum pbb_result hello_cons_addr_start(struct pbb_reader_tlvblock_consumer
 
 
 static enum pbb_result hello_cons_addr_tlv(struct pbb_reader_tlvblock_consumer *c __attribute__ ((unused)),
-                                           struct pbb_reader_tlvblock_entry *tlv,
+                                           struct pbb_reader_tlvblock_entry *tlv __attribute__ ((unused)),
                                            struct pbb_reader_tlvblock_context *context) {
     assert (context->type == PBB_CONTEXT_ADDRESS);
 

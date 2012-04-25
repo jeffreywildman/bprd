@@ -59,6 +59,7 @@ typedef struct dubp {
     /* commodity table */
     list_t clist;               /* my commodity list */
     /* TODO: do i need a mutex for my commodity list? */
+    pthread_t backlogger_tid;
 
     /* neighbor table */
     neighbortable_t ntable;
