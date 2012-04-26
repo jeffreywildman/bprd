@@ -6,6 +6,8 @@
 #include <sys/types.h>
 
 #include <common/netaddr.h>
+#include "fifo_queue.h"
+
 typedef struct netaddr netaddr_t;
 typedef union netaddr_socket netaddr_socket_t;
 typedef struct netaddr_str netaddr_str_t;
@@ -34,11 +36,8 @@ typedef struct commodity_short {
 } commodity_s_t;
 typedef struct commodity {
     commodity_s_t cdata;
-    uint32_t nfq_id;        /* NFQUEUE id associated with this commodity */
-    /* TODO: uncomment the following line and include the proper header that defines it */
-    //fifo_t *queue;          /* queue holding packets of this commodity */
-    /* TODO: delete the following line once the above is taken care of */
-    int *queue;          /* queue holding packets of this commodity */
+    uint16_t nfq_id;        /* NFQUEUE id associated with this commodity */
+    fifo_t *queue;          /* queue holding packets of this commodity */
 } commodity_t;
 
 /* neighbor definition */
