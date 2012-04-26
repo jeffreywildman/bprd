@@ -334,16 +334,20 @@ void dubp_init(int argc, char **argv) {
     /* TODO: link in with Bradford's code here to initialize */
     /* TODO: remove these test commodities */
     commodity_t *com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->addr, "192.168.1.200/24") < 0) {
+    if (netaddr_from_string(&com->cdata.addr, "192.168.1.200/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
-    com->backlog = 0x77;
+    com->cdata.backlog = 0x77;
+    com->nfq_id = 0;
+    com->queue = NULL;
     list_insert(&dubpd.clist, com);
     com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->addr, "192.168.1.201/24") < 0) {
+    if (netaddr_from_string(&com->cdata.addr, "192.168.1.201/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
-    com->backlog = 0x78;
+    com->cdata.backlog = 0x78;
+    com->nfq_id = 0;
+    com->queue = NULL;
     list_insert(&dubpd.clist, com);
 
     /* initialize my neighbor table */
@@ -370,12 +374,13 @@ void dubp_init(int argc, char **argv) {
     n->bidir = 0;
     n->update_time = time(NULL);
     list_init(&n->clist);
-    com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->addr, "192.168.1.200/24") < 0) {
+    commodity_s_t *cdata;
+    cdata = (commodity_s_t *)malloc(sizeof(commodity_t));
+    if (netaddr_from_string(&cdata->addr, "192.168.1.200/24") < 0) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
-    com->backlog = 0xAA;
-    list_insert(&n->clist, com);
+    cdata->backlog = 0xAA;
+    list_insert(&n->clist, cdata);
     list_insert(&dubpd.ntable.nlist, n);
 
     ntable_mutex_unlock(&dubpd.ntable);

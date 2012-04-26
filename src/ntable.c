@@ -125,7 +125,7 @@ static int cmp_data_c(void *data1, void *data2) {
     commodity_t *c1 = (commodity_t *)data1;
     commodity_t *c2 = (commodity_t *)data2;
 
-    return netaddr_cmp(&c1->addr, &c2->addr); 
+    return netaddr_cmp(&c1->cdata.addr, &c2->cdata.addr); 
 }
 
 
@@ -267,7 +267,7 @@ void ntable_print(neighbortable_t *ntable) {
         for (f = LIST_FIRST(&n->clist); f != NULL; f = LIST_NEXT(f, elms)) {
             assert(f->data);
             c = (commodity_t *)f->data;
-            printf("\t\tDest: %s \t Backlog: %u\n", netaddr_to_string(&naddr_str, &c->addr), c->backlog);
+            printf("\t\tDest: %s \t Backlog: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog);
         }
         printf("\n");
     }

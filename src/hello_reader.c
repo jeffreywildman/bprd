@@ -68,19 +68,20 @@ static enum pbb_result hello_cons_msg_tlv(struct pbb_reader_tlvblock_consumer *c
                                           struct pbb_reader_tlvblock_context *context) {
     assert (context->type == PBB_CONTEXT_MESSAGE);
 
-    commodity_t *com, *comtemp;
+    commodity_t *com;
+    commodity_t comtemp;
 
     /* read in commodities for the neighbor */
-    if (tlv->type == DUBP_MSGTLV_TYPE_COM && tlv->length == sizeof(commodity_t)) {
-        comtemp = (commodity_t *)tlv->single_value;
+    if (tlv->type == DUBP_MSGTLV_TYPE_COM && tlv->length == sizeof(commodity_s_t)) {
+        comtemp.cdata = *(commodity_s_t *)tlv->single_value;
         /* try to find commodity in neighbor commodity list or create new one */
-        com = clist_find(&n->clist, comtemp);
+        com = clist_find(&n->clist, &comtemp);
         if (com == NULL) {
             com = (commodity_t *)malloc(sizeof(commodity_t));
-            com->addr = comtemp->addr;
+            com->cdata.addr = comtemp.cdata.addr;
             list_insert(&n->clist, com);
         }
-        com->backlog = comtemp->backlog;
+        com->cdata.backlog = comtemp.cdata.backlog;
     } else {
         DUBP_LOG_ERR("Unrecognized TLV parameters");
     }

@@ -1,19 +1,35 @@
 #include <pthread.h>
 #include <unistd.h>
-
+#include <sys/queue.h>
+#include <stdio.h>
 
 #include "dubp.h"
 #include "logger.h"
+#include "ntable.h"
 
 
 static void backlogger_init() {
-    
-    /* initialization of backlogger thread */
 
+    /* PRECONDITION: all commodities have been initialized and exist in dubpd.clist */
+    /* PRECONDITION: each commodity_t element in dubpd.clist has 'uint32_t nfq_id' set and 'fifo_t *queue == NULL' */
+
+    /* initialization of backlogger thread */
     /* open connection to libnetfilter */
     /* set up necessary queues to track commodities */
-    /* make sure references to queue are associated with property commodity_t element in dubpd.clist */
+   
+    /* sample iteration through dubpd.clist */
+    elm_t *e;
+    commodity_t *c;
 
+    /* iterate through list looking for matching element */
+    for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+        c = e->data;
+        printf("This is the NFQUEUE id: %u\n", c->nfq_id);
+        //c->queue will be fifo_t * set to NULL;
+    }
+
+    /* POSTCONDITION: each commodity_t element in dubpd.clist has a valid fifo_t *queue that can be used in function 
+       calls to your library */
 }
 
 

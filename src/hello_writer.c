@@ -68,9 +68,11 @@ static void hello_add_msgtlvs(struct pbb_writer *w, struct pbb_writer_content_pr
     /* TODO: mutex lock commodity list? */
     elm_t *e;
     commodity_t *c;
+    commodity_s_t cdata;
     for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         c = (commodity_t *)e->data;
-        pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_COM, 0, c, sizeof(*c));
+        cdata = c->cdata;
+        pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_COM, 0, &cdata, sizeof(commodity_s_t));
         //pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_COMKEY, 0, &c->addr.addr, addr_len);
         //pbb_writer_add_messagetlv(w, DUBP_MSGTLV_TYPE_BACKLOG, 0, &c->backlog, sizeof(c->backlog));
     }   

@@ -28,9 +28,17 @@ extern void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_dat
 
 
 /* commodity definition */
+typedef struct commodity_short {
+        netaddr_t addr;     /* destination address of the commodity */
+        uint8_t backlog;    /* backlog associated with the commodity */
+} commodity_s_t;
 typedef struct commodity {
-    netaddr_t addr;     /* destination address of the commodity */
-    uint8_t backlog;    /* backlog associated with the commodity */
+    commodity_s_t cdata;
+    uint32_t nfq_id;        /* NFQUEUE id associated with this commodity */
+    /* TODO: uncomment the following line and include the proper header that defines it */
+    //fifo_t *queue;          /* queue holding packets of this commodity */
+    /* TODO: delete the following line once the above is taken care of */
+    int *queue;          /* queue holding packets of this commodity */
 } commodity_t;
 
 /* neighbor definition */
