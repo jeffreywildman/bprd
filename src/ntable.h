@@ -33,7 +33,7 @@ extern void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_dat
 /* commodity definition */
 typedef struct commodity_short {
         netaddr_t addr;     /* destination address of the commodity */
-        uint8_t backlog;    /* backlog associated with the commodity */
+        uint32_t backlog;    /* backlog associated with the commodity */
 } commodity_s_t;
 typedef struct commodity {
     commodity_s_t cdata;

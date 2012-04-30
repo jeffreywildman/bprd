@@ -11,6 +11,21 @@
 
 static struct nfq_handle *h;
 
+/* update the backlogs on each commodity */
+void backlogger_update() {
+
+    elm_t *e;
+    commodity_t *c;
+    
+    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+            c = (commodity_t *)e->data;
+            assert(c->queue);
+            c->cdata.backlog = fifo_length(c->queue);
+    }
+
+}
+
+
 static void backlogger_init() {
 
     /* PRECONDITION: all commodities have been initialized and exist in dubpd.clist */

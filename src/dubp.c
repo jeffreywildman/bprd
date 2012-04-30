@@ -170,14 +170,89 @@ static void socket_init() {
 }
 
 
+/* create a commodity and add to list */
+/* char *buf should be of the form "ADDRESS,ID" */
+/* PRECONDITION: list is already initialized */
+void create_commodity(char *buf) {
+
+    /* TODO: appropriately size */
+    char addrstr[256];
+    uint32_t nfq_id;
+    commodity_t *c;
+    
+    /* extract fields from string */
+    if (sscanf(buf, "%[^,],%u\n", addrstr, &nfq_id) != 2) {  /* we want exactly two args processed */
+        DUBP_LOG_ERR("Error parsing commodity string");   
+    }
+
+    /* create new commodity */
+    c = (commodity_t *)malloc(sizeof(commodity_t));
+    memset(c, 0, sizeof(*c));
+    if (netaddr_from_string(&c->cdata.addr, addrstr) < 0) {
+        DUBP_LOG_ERR("Unable to convert string to address");
+    }
+    /* check for duplicate */
+    if (clist_find(&dubpd.clist, c) != NULL) {
+        DUBP_LOG_ERR("Duplicate commodity detected");
+    }
+    c->cdata.backlog = 0;
+    c->nfq_id = nfq_id;
+    c->queue = NULL;
+    list_insert(&dubpd.clist, c);
+}
+
+
+/* configuration file reading, for now supports commodity definitions only! */
+/* TODO: support full range of options! */
+/* TODO: look at i) libconfig or ii) glibc's key-value file parser */
+int confile_read() {
+
+    FILE *confd;
+    char buf[256];
+
+    if ((confd = fopen(dubpd.confile, "r")) == NULL) {
+        DUBP_LOG_ERR("Unable to open config file");
+    } 
+
+    if (fileno(confd) < 0) {
+        DUBP_LOG_ERR("Config file not valid");
+    }
+
+    while (fgets(buf, 255, confd)) {
+        if (strlen(buf) == 255) {
+            DUBP_LOG_ERR("Line in config file too long!");
+        }
+        if (buf[0] == '#') {
+            /* skip comment */
+        } else {
+            create_commodity(buf);
+        }
+    };
+
+    if (ferror(confd)) {
+        DUBP_LOG_ERR("Unable to read from file");
+    } 
+
+    return 0;
+}
+
 
 /* initialize dubp instance */
 /* precedence of options, i) command-line, ii) config file, iii) in-code defaults */
+/* bash_completion of command-line args */
 void dubp_init(int argc, char **argv) {
 
     int c;
 
     dubpd.program = argv[0];
+    /* must be initialized prior to config file read in! */
+    /* initialize my commodity list */
+    list_init(&dubpd.clist);  
+    /* initialize my neighbor table */
+    ntable_mutex_init(&dubpd.ntable);
+    ntable_mutex_lock(&dubpd.ntable);
+    list_init(&dubpd.ntable.nlist);
+    ntable_mutex_unlock(&dubpd.ntable);
 
     int lo_index;
     static struct option config_option[] = {
@@ -191,23 +266,36 @@ void dubp_init(int argc, char **argv) {
         {"v6", no_argument, &dubpd.ipver, AF_INET6},
         /* these options do not set a flag */
         {"config", required_argument, NULL, 'c'},
+        {"commodity", required_argument, NULL, 'r'},
         {"interface", required_argument, NULL, 'i'},
         {"pidfile", required_argument, NULL, 'p'},
         {0,0,0,0}
     };
 
     opterr = 0;
-    
+
     /* first check for config file within arguments */
     while ((c = getopt_long_only(argc, argv, "-", config_option, &lo_index)) != -1) {
         if (c == 'c') {
-            printf("config: %s\n", optarg);
             dubpd.confile = optarg;
-            /* TODO: process configuration file here, before all other options */
-            /* confile_read(); */
         }
     }
-    
+
+    /* set confile location */
+    if (!dubpd.confile) {
+        if (!(dubpd.confile = (char *)malloc(DUBP_DEFAULT_CONLEN*sizeof(char)))) {
+            DUBP_LOG_ERR("Unable to allocate memory");
+        }
+        if (sprintf(dubpd.confile, "%s", DUBP_DEFAULT_CONSTR) < 0) {
+            DUBP_LOG_ERR("Unable to set default confile string");
+        }
+    }
+
+    /* read from configuration file before parsing remaining command-line args */
+    if (confile_read() < 0) {
+        DUBP_LOG_DBG("Unable to read configuration file");
+    }
+
     /* reset optind to reparse command-line args */
     optind = 0;
     opterr = 1;
@@ -230,6 +318,10 @@ void dubp_init(int argc, char **argv) {
         case 'p':
             printf("pidfile option: %s\n", optarg);
             dubpd.pidfile = optarg;
+            break;
+        case 'r':
+            printf("commodity option: %s\n", optarg);
+            create_commodity(optarg);
             break;
         case '?':
             DUBP_LOG_ERR("Unable to parse input arguments");
@@ -329,61 +421,16 @@ void dubp_init(int argc, char **argv) {
 
     dubpd.hello_seqno = 0;
 
-    list_init(&dubpd.clist);
-    /* TODO: initialize my commodity list */
-    /* TODO: link in with Bradford's code here to initialize */
-    /* TODO: remove these test commodities */
-    commodity_t *com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->cdata.addr, "192.168.1.200/24") < 0) {
-        DUBP_LOG_ERR("Unable to convert string to address");
+    /* verify existing commodity list up to this point is of the correct type */
+    elm_t *e;
+    commodity_t *com;
+    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+        com = (commodity_t *)e->data;
+        if (com->cdata.addr.type != dubpd.ipver) {
+            DUBP_LOG_ERR("Commodity destination IP address version does not match program's IP version");      
+        }
+        /* TODO: verify uniqueness of nfq_id on each commodity */
     }
-    com->cdata.backlog = 0x77;
-    com->nfq_id = 0;
-    com->queue = NULL;
-    list_insert(&dubpd.clist, com);
-    com = (commodity_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&com->cdata.addr, "192.168.1.201/24") < 0) {
-        DUBP_LOG_ERR("Unable to convert string to address");
-    }
-    com->cdata.backlog = 0x78;
-    com->nfq_id = 1;
-    com->queue = NULL;
-    list_insert(&dubpd.clist, com);
-
-    /* initialize my neighbor table */
-    ntable_mutex_init(&dubpd.ntable);
-    ntable_mutex_lock(&dubpd.ntable);
-    list_init(&dubpd.ntable.nlist);
-    
-    /* TODO: remove these test neighbors */
-    /* neighbor 1, no commodity */
-    neighbor_t *n = (neighbor_t *)malloc(sizeof(neighbor_t));
-    if (netaddr_from_string(&n->addr, "192.168.1.220/24") < 0) {
-        DUBP_LOG_ERR("Unable to convert string address");
-    }
-    n->bidir = 0;
-    n->update_time = time(NULL);
-    list_init(&n->clist);
-    list_insert(&dubpd.ntable.nlist, n);
-
-    /* neighbor 2, one commodity */
-    n = (neighbor_t *)malloc(sizeof(neighbor_t));
-    if (netaddr_from_string(&n->addr, "192.168.1.221/24") < 0) {
-        DUBP_LOG_ERR("Unable to convert string address");
-    }
-    n->bidir = 0;
-    n->update_time = time(NULL);
-    list_init(&n->clist);
-    commodity_s_t *cdata;
-    cdata = (commodity_s_t *)malloc(sizeof(commodity_t));
-    if (netaddr_from_string(&cdata->addr, "192.168.1.200/24") < 0) {
-        DUBP_LOG_ERR("Unable to convert string to address");
-    }
-    cdata->backlog = 0xAA;
-    list_insert(&n->clist, cdata);
-    list_insert(&dubpd.ntable.nlist, n);
-
-    ntable_mutex_unlock(&dubpd.ntable);
 }
 
 
@@ -404,6 +451,9 @@ int main(int argc, char **argv) {
     /* start up backlog thread */
     backlogger_thread_create();
 
+    /* TODO: wait until signal from the backlog thread instead of sleeping here! */
+    sleep(1);
+
     /* start the hello threads */
     hello_reader_thread_create();
     hello_writer_thread_create();
@@ -412,6 +462,11 @@ int main(int argc, char **argv) {
     /* TODO: this 'thread' will periodically poll commodity data, 
        update backlogs, set routes, release data packets to kernel */
     while(1) {
+
+        /* TODO: determine which backlog update scheme is best: */
+        /* TODO: i) better if we only update periodically here, or */
+        /* TODO: ii) better if we update each time we need the backlog */
+        backlogger_update();
 
         sleep(1);
     }
