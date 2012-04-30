@@ -2,15 +2,15 @@
  * simple_fifo.h
  * (C) 2012 by Bradford Boyle <bradford@minerva.ece.drexel.edu
  * 
- * Implements a simple FIFO queue for libnetfilter_queue by keeoubg
+ * Implements a simple FIFO queue for libnetfilter_queue by keeping
  * track of the id the most recently seen packet and the id of the
  * most recently accepted/dropped packet
  */
-#ifndef __FIFO_QUEUE_H_
-#define __FIFO_QUEUE_H_
+#ifndef __FIFO_QUEUE_H
+#define __FIFO_QUEUE_H
 
-#include<stdint.h>
-#include<libnetfilter_queue/libnetfilter_queue.h>
+#include <stdint.h>
+#include <libnetfilter_queue/libnetfilter_queue.h>
 
 /* Typedefs to shorten netfilter_queue types*/
 typedef struct nfq_q_handle nfq_qh_t;
@@ -38,4 +38,5 @@ void fifo_drop_packet(fifo_t *queue);
 inline uint32_t fifo_length(fifo_t *queue);
 void fifo_delete(fifo_t *queue);
 void fifo_print(fifo_t *queue);
-#endif
+
+#endif /* __FIFO_QUEUE_H */

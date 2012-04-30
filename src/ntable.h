@@ -6,6 +6,7 @@
 #include <sys/types.h>
 
 #include <common/netaddr.h>
+
 #include "fifo_queue.h"
 
 typedef struct netaddr netaddr_t;

@@ -23,19 +23,21 @@ static void backlogger_init() {
     commodity_t *c;
 
     //TODO: Assume setpriorty() has been called already
-    
+
     /* Opening netfilter_queue library handle */
     h = nfq_open();
     if (!h) {
-    	DUBP_LOG_ERR("error during nfq_open()");
+        DUBP_LOG_ERR("error during nfq_open()");
     }
 
     /* Unbind existing nf_queue handler for AF_INET (if any) */
+    /* TODO: extend to IPv6 handling */
     if (nfq_unbind_pf(h, AF_INET) < 0) {
         DUBP_LOG_ERR("error during nfq_unbind_pf()");
     }
 
     /* Bind nfnetlink_queue as nf_queue handler for AF_INET */
+    /* TODO: extend to IPv6 handling */
     if (nfq_bind_pf(h, AF_INET) < 0) {
         DUBP_LOG_ERR("error during nfq_bind_pf()");
     }
@@ -43,19 +45,19 @@ static void backlogger_init() {
     /* iterate through list looking for matching element */
     for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         c = e->data;
-	c->queue = (fifo_t *)malloc(sizeof(fifo_t));
-	fifo_init((c)->queue);
-	
-	/* Bind this socket to queue c->id */
-	((c)->queue)->qh = nfq_create_queue(h, c->nfq_id, &fifo_add_packet, (c)->queue);
-	if (!(((c)->queue)->qh)) {
-	    DUBP_LOG_ERR("error during nfq_create_queue()");
-	}
+        c->queue = (fifo_t *)malloc(sizeof(fifo_t));
+        fifo_init(c->queue);
 
-	/* Set packet copy mode to NFQNL_COPY_META */
-	if (nfq_set_mode(((c)->queue)->qh, NFQNL_COPY_META, 0xffff) < 0) {
-	    DUBP_LOG_ERR("can't set packet_copy mode");
-	}
+        /* Bind this socket to queue c->id */
+        c->queue->qh = nfq_create_queue(h, c->nfq_id, &fifo_add_packet, c->queue);
+        if (!c->queue->qh) {
+            DUBP_LOG_ERR("error during nfq_create_queue()");
+        }
+
+        /* Set packet copy mode to NFQNL_COPY_META */
+        if (nfq_set_mode(c->queue->qh, NFQNL_COPY_META, 0xffff) < 0) {
+            DUBP_LOG_ERR("can't set packet_copy mode");
+        }
     } // for
 
     /* POSTCONDITION: each commodity_t element in dubpd.clist has a valid fifo_t *queue that can be used in function 
@@ -63,18 +65,19 @@ static void backlogger_init() {
 }
 
 
-/* loop endlessly and send hello messages */
+/* loop endlessly and handle commodity packets */
 static void *backlogger_thread(void *arg __attribute__((unused)) ) {
 
     backlogger_init();
     int fd, rv;
+    /* TODO: correct way to allocate buffer? */
     char buf[4096] __attribute__ ((aligned));
 
     fd = nfq_fd(h);
 
     while ((rv = recv(fd, buf, sizeof(buf),0)) && rv >=0) {
         /* main backlogger loop */
-	nfq_handle_packet(h, buf, rv);
+        nfq_handle_packet(h, buf, rv);
     }
     //TODO: Clean up?
 

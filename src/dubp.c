@@ -346,7 +346,7 @@ void dubp_init(int argc, char **argv) {
         DUBP_LOG_ERR("Unable to convert string to address");
     }
     com->cdata.backlog = 0x78;
-    com->nfq_id = 0;
+    com->nfq_id = 1;
     com->queue = NULL;
     list_insert(&dubpd.clist, com);
 
