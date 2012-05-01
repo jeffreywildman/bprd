@@ -44,15 +44,36 @@ dubp_t dubpd = {
 .maddrlen = 0
 };
 
+/* options acted upon immediately before others */
+static struct option pre_options[] = {
+    {"config", required_argument, NULL, 'c'},
+    {"help", no_argument, NULL, 'h'},
+    {0,0,0,0}
+};
+static struct option long_options[] = {
+    /* these options set a flag */
+    /* these options do not set a flag */
+    {"v4", no_argument, NULL, '4'},
+    {"v6", no_argument, NULL, '6'},
+    {"commodity", required_argument, NULL, 'r'},
+    {"config", required_argument, NULL, 'c'},
+    {"daemon", no_argument, NULL, 'd'},
+    {"help", no_argument, NULL, 'h'},
+    {"interface", required_argument, NULL, 'i'},
+    {"pidfile", required_argument, NULL, 'p'},
+    {0,0,0,0}
+};
 
 static void usage() {
-    printf("\nUsage:\t%s [OPTION]...\n",dubpd.program);
+    printf("Usage:\t%s [OPTION]...\n",dubpd.program);
     printf("Start the backpressure routing protocol with OPTIONs.\n\n");
     printf("Mandatory arguments to long options are mandatory for short options too.\n");
+    printf("  -4, --v4              \trun the protocol using IPv4 (default)\n");
+    printf("  -6, --v6              \trun the protocol using IPv6\n");
+    printf("  -r, --commodity=\"ADDR,ID\"     \tdefine a commodity via command-line\n");
     printf("  -c, --config=FILE     \tread configuration parameters from FILE\n");
-    printf("  -d                    \trun the program as a daemon\n");
-    printf(" -v4, --v4              \trun the protocol using IPv4 (default)\n");
-    printf(" -v6, --v6              \trun the protocol using IPv6\n");
+    printf("  -d, --daemon          \trun the program as a daemon\n");
+    printf("  -h, --help            \tprint this help message\n");
     printf("  -i, --interface=IFACE \trun the protocol over interface IFACE (default is eth0)\n");
     printf("  -p, --pidfile=FILE    \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
 }
@@ -68,7 +89,7 @@ static void daemon_handler_sigterm(int signum __attribute__ ((unused))) {
 
 
 static int daemon_init() {
-    
+
     pid_t pid, sid;
 
     if ((pid = fork()) < 0) {
@@ -107,7 +128,7 @@ static int daemon_init() {
     if (pidfile_create(dubpd.pidfile) < 0) {
         DUBP_LOG_ERR("Unable to create pidfile");
     }
-   
+
     /* install our SIGTERM handler */
     if (sigaction(SIGTERM, &sa, NULL) < 0) {
         DUBP_LOG_ERR("Unable to set up SIGTERM handler");
@@ -171,7 +192,7 @@ static void socket_init() {
     if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
         DUBP_LOG_ERR("Unable to set default outgoing multicast interface");
     }
- 
+
 }
 
 
@@ -184,7 +205,7 @@ void create_commodity(char *buf) {
     char addrstr[256];
     uint32_t nfq_id;
     commodity_t *c;
-    
+
     /* extract fields from string */
     if (sscanf(buf, "%[^,],%u\n", addrstr, &nfq_id) != 2) {  /* we want exactly two args processed */
         DUBP_LOG_ERR("Error parsing commodity string");   
@@ -216,13 +237,14 @@ int confile_read() {
     char buf[256];
 
     if ((confd = fopen(dubpd.confile, "r")) == NULL) {
-        DUBP_LOG_ERR("Unable to open config file");
+        return -errno;
     } 
 
     if (fileno(confd) < 0) {
         DUBP_LOG_ERR("Config file not valid");
     }
 
+    /* parse config file */
     while (fgets(buf, 255, confd)) {
         if (strlen(buf) == 255) {
             DUBP_LOG_ERR("Line in config file too long!");
@@ -235,8 +257,10 @@ int confile_read() {
     };
 
     if (ferror(confd)) {
-        DUBP_LOG_ERR("Unable to read from file");
+        DUBP_LOG_ERR("Error while reading from config file");
     } 
+
+    fclose(confd);
 
     return 0;
 }
@@ -260,29 +284,22 @@ void dubp_init(int argc, char **argv) {
     ntable_mutex_unlock(&dubpd.ntable);
 
     int lo_index;
-    static struct option config_option[] = {
-        {"config", required_argument, NULL, 'c'},
-        {0,0,0,0}
-    };
-    static struct option long_options[] = {
-        /* these options set a flag */
-        {"d", no_argument, &dubpd.dmode, 1},
-        {"v4", no_argument, &dubpd.ipver, AF_INET},
-        {"v6", no_argument, &dubpd.ipver, AF_INET6},
-        /* these options do not set a flag */
-        {"config", required_argument, NULL, 'c'},
-        {"commodity", required_argument, NULL, 'r'},
-        {"interface", required_argument, NULL, 'i'},
-        {"pidfile", required_argument, NULL, 'p'},
-        {0,0,0,0}
-    };
-
     opterr = 0;
-
-    /* first check for config file within arguments */
-    while ((c = getopt_long_only(argc, argv, "-", config_option, &lo_index)) != -1) {
-        if (c == 'c') {
+   
+    /* first check for pre-options within arguments */
+    while ((c = getopt_long_only(argc, argv, "-c:h", pre_options, &lo_index)) != -1) {
+        switch (c) {
+        case 'c':
+            printf("config file option: %s\n", optarg);
             dubpd.confile = optarg;
+            break;
+        case 'h':
+            usage();
+            /* TODO: exit more gracefully */
+            exit(0);
+            break;
+        default:
+            break;
         }
     }
 
@@ -298,7 +315,7 @@ void dubp_init(int argc, char **argv) {
 
     /* read from configuration file before parsing remaining command-line args */
     if (confile_read() < 0) {
-        DUBP_LOG_DBG("Unable to read configuration file");
+        DUBP_LOG_DBG("Unable to open configuration file");
     }
 
     /* reset optind to reparse command-line args */
@@ -306,15 +323,34 @@ void dubp_init(int argc, char **argv) {
     opterr = 1;
 
     /* iterate through arguments again, optind is now first argument not recognized by original pass */
-    while ((c = getopt_long_only(argc, argv, "", long_options, &lo_index)) != -1) {
+    while ((c = getopt_long_only(argc, argv, "46r:c:dhi:p:", long_options, &lo_index)) != -1) {
         switch (c) {
         case 0:
             if (long_options[lo_index].flag != 0) {
                 printf("%s: %d\n", long_options[lo_index].name, long_options[lo_index].val);
             }
             break;
+        case '4':
+            printf("v4 option\n");
+            dubpd.ipver = AF_INET;
+            break;
+        case '6':
+            printf("v6 option\n");
+            dubpd.ipver = AF_INET6;
+            break;
+        case 'r':
+            printf("commodity option: %s\n", optarg);
+            create_commodity(optarg);
+            break;
         case 'c':
             /* ignore the config file this time around! */
+            break;
+        case 'd':
+            printf("daemon option");
+            dubpd.dmode = 1;
+            break;
+        case 'h':
+            /* ignore help this time around! */
             break;
         case 'i':
             printf("interface: %s\n", optarg);
@@ -323,10 +359,6 @@ void dubp_init(int argc, char **argv) {
         case 'p':
             printf("pidfile option: %s\n", optarg);
             dubpd.pidfile = optarg;
-            break;
-        case 'r':
-            printf("commodity option: %s\n", optarg);
-            create_commodity(optarg);
             break;
         case '?':
             DUBP_LOG_ERR("Unable to parse input arguments");

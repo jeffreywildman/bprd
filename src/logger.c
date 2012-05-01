@@ -31,7 +31,8 @@ void log_err(const char *file, const int line, const char *msg) {
     char errbuf[MAX_ERROR_MSG_SIZE];
 
     /* thread-safe error message grabbing */
-    if (strerror_r(errno, errbuf, MAX_ERROR_MSG_SIZE) == 0) {
+    /* also, don't print Success when reporting an error, duh */
+    if ((errno != 0) && (strerror_r(errno, errbuf, MAX_ERROR_MSG_SIZE) == 0)) {
         syslog(priority, "ERROR %s:%d %s: %s", file, line, msg, errbuf);
     } else {
         syslog(priority, "ERROR %s:%d %s", file, line, msg);

@@ -22,7 +22,10 @@
 #define DUBP_DEFAULT_PIDLEN 25
 #define DUBP_DEFAULT_PIDSTR "/var/run/dubpd.pid"
 #define DUBP_DEFAULT_CONLEN 25
+/* TODO: move this into a config.h!!! */
 #define DUBP_DEFAULT_CONSTR "/etc/dubpd.conf"
+/* the following assumes dubpd is run from project's top level directory */
+//#define DUBP_DEFAULT_CONSTR "./scripts/dubp.conf"
 
 #define DUBP_MSG_TYPE_HELLO 1
 
