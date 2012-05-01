@@ -166,6 +166,11 @@ static void socket_init() {
     if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         DUBP_LOG_ERR("Unable to join multicast group");
     }
+
+    /* set default interface for outgoing multicast messages */
+    if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
+        DUBP_LOG_ERR("Unable to set default outgoing multicast interface");
+    }
  
 }
 
