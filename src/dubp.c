@@ -474,7 +474,7 @@ void dubp_init(int argc, char **argv) {
 int main(int argc, char **argv) {
 
     /* initialize logging */
-    log_init();
+    logger_init();
 
     /* set instance parameters */
     dubp_init(argc, argv);
@@ -512,7 +512,7 @@ int main(int argc, char **argv) {
     close(dubpd.sockfd);
 
     /* cleanup logging */
-    log_cleanup();
+    logger_cleanup();
 
     return 0;
 }

@@ -1,12 +1,16 @@
 #ifndef __LOGGER_H
 #define __LOGGER_H
 
-#define DUBP_LOG_ERR(x) log_err(__FILE__,__LINE__,(x))
-#define DUBP_LOG_DBG(x) log_dbg(__FILE__,__LINE__,(x))
+#include <syslog.h>
 
-extern void log_init();
-extern void log_cleanup();
-extern void log_err(const char *file, const int line, const char *msg);
-extern void log_dbg(const char *file, const int line, const char *msg);
+#define DUBP_LOG_ERR(fmt,...) logger_log(LOG_ERR,__FILE__,__LINE__,(fmt),##__VA_ARGS__)
+#define DUBP_LOG_DBG(fmt,...) logger_log(LOG_DEBUG,__FILE__,__LINE__,(fmt),##__VA_ARGS__)
+
+extern void logger_init();
+extern void logger_cleanup();
+extern void logger_log(int priority, 
+                       const char *file, 
+                       const int line, 
+                       const char *fmt, ...) __attribute__ ((format (printf,4,5)));
 
 #endif /* __LOGGER_H */
