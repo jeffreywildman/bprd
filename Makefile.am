@@ -1,6 +1,11 @@
 ACLOCAL_AMFLAGS = -I m4
+include $(top_srcdir)/doc/doxygen.am
 
 SUBDIRS = lib src .
+
+# doc: doxygen-doc
+
+MOSTLYCLEANFILES = $(DX_CLEANFILES)
 
 MAINTAINERCLEANFILES = aclocal.m4 \
 					   configure \
