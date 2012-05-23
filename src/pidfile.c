@@ -1,20 +1,27 @@
 #include "pidfile.h"
 
-#include <errno.h>
-#include <fcntl.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
+#include <fcntl.h>      /* for open(), */
+#include <stdint.h>     /* for intmax_t */
+#include <stdio.h>      /* for sprintf() */
+#include <sys/stat.h>   /* for open() */
+#include <sys/types.h>  /* for pid_t, getpid() */
+#include <unistd.h>     /* for unlink(), getpid(), write(), close() */
 
 
-/* find max length of pid in ASCII form, plus one for newline */
-/* log10(2^(8*sizeof(pid_t))) < 8*sizeof(pid_t)*log10(2) < 3*sizeof(pid_t) */
+/**
+ * Stores the max length of a PID represented in ASCII form, plus one for newline.
+ * \note log10(2^(8*sizeof(pid_t))) < 8*sizeof(pid_t)*log10(2) < 3*sizeof(pid_t)
+ */
 static const int maxpidstrlen = 3*sizeof(pid_t)+1;
 
-/* create pidfile at provided located, return -1 on error with errno set, return 0 on success */
+
+/**
+ * Create pidfile with PID inside.
+ *
+ * \param pathname File to create, must not already exist.
+ *
+ * \return Returns 0 on success, otherwise -1 on error.
+ */
 int pidfile_create(const char *pathname) {
 
     int buflen, pidfd;
@@ -36,8 +43,15 @@ int pidfile_create(const char *pathname) {
 }
 
 
-/* destroy pidfile at provided located, return -1 on error and with errno set, return 0 on success */
-/* TODO: really consider how dangerous this function could be */
+/**
+ * Destroy pidfile.
+ *
+ * \todo Fully consider how dangerous this function could be in the wrong hands.
+ *
+ * \param pathname File to destroy.
+ *
+ * \return Returns 0 on success, otherwise -1 on error.
+ */
 int pidfile_destroy(const char *pathname) {
 
     if (unlink(pathname) < 0) {

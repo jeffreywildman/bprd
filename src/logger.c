@@ -1,8 +1,8 @@
 #include "logger.h"
 
-#include <stdarg.h> /* for vsnprintf() */
-#include <stdio.h>  /* for snprintf() */
-#include <stdlib.h> /* for exit() */
+#include <stdarg.h>     /* for vsnprintf() */
+#include <stdio.h>      /* for snprintf() */
+#include <stdlib.h>     /* for exit() */
 #include <syslog.h>
 
 

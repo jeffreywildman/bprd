@@ -1,7 +1,7 @@
 #ifndef __LOGGER_H
 #define __LOGGER_H
 
-#include <syslog.h>
+#include <syslog.h>     /* for priority definitions, ex. LOG_ERR */
 
 #define DUBP_LOG_ERR(fmt,...) logger_log(LOG_ERR,__FILE__,__LINE__,(fmt),##__VA_ARGS__)
 #define DUBP_LOG_DBG(fmt,...) logger_log(LOG_DEBUG,__FILE__,__LINE__,(fmt),##__VA_ARGS__)
