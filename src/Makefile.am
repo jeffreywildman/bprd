@@ -4,15 +4,18 @@ dubpd_CPPFLAGS = -I$(top_srcdir)/lib
 dubpd_LDFLAGS =
 dubpd_LDADD = -lpthread \
 			  -lnetfilter_queue \
+			  -lnl -lnl-route \
 			  $(top_srcdir)/lib/packetbb/libpacketbb.la
-dubpd_SOURCES = dubp.c \
-				pidfile.c \
-				util.c \
-				logger.c \
+dubpd_SOURCES = \
+				backlogger.c \
+				dubp.c \
+				fifo_queue.c \
 				hello_reader.c \
 				hello_writer.c \
+				logger.c \
 				ntable.c \
-				backlogger.c \
-				fifo_queue.c
+				pidfile.c \
+				router.c \
+				util.c
 
 MAINTAINERCLEANFILES = Makefile.in

@@ -49,7 +49,7 @@ fi
 
 dnl Check the libraries that use pkg-config
 PKG_CHECK_MODULES([LIBNETFILTER_QUEUE], [libnetfilter_queue])
-dnl PKG_CHECK_MODULES([LIBNL_3_0], [libnl-3.0])
+PKG_CHECK_MODULES([LIBNL_3_0], [libnl-3.0])
 dnl PKG_CHECK_MODULES([LIBGVC], [libgvc])
 dnl PKG_CHECK_MODULES([LIBGRAPH], [libgraph])
 dnl PKG_CHECK_MODULES([LIBCDT], [libcdt])
