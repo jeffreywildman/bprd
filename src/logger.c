@@ -1,16 +1,20 @@
+/**
+ * \defgroup Logger
+ * \{
+ */
+
 #include "logger.h"
 
+#include <pthread.h>    /* for pthread_* */
 #include <stdarg.h>     /* for vsnprintf() */
 #include <stdio.h>      /* for snprintf() */
 #include <stdlib.h>     /* for exit() */
 #include <syslog.h>
 
 
-static enum logger_state {
-    LOGGER_DOWN = 0,
-    LOGGER_UP   = 1
-} state = LOGGER_DOWN;
-
+/**
+ * Mapping of syslog priorities to 5-character string identifiers.
+ */
 static char *logger_prioritynames[] = {
     "EMERG",
     "ALERT",
@@ -22,8 +26,10 @@ static char *logger_prioritynames[] = {
     "DEBUG",
     NULL
 };
-#define LOGGER_MSGSTRLEN 256
-static char logger_msgstr[LOGGER_MSGSTRLEN];
+
+#define LOGGER_MSGSTRLEN 256                    /**< Maximum message length sent to syslog. */
+static char logger_msgstr[LOGGER_MSGSTRLEN];    /**< Storage for message sent to syslog. */
+static pthread_mutex_t logger_mutex;            /**< Mutex controlling thread access to logger. */
 
 
 /**
@@ -31,10 +37,8 @@ static char logger_msgstr[LOGGER_MSGSTRLEN];
  */
 void logger_init() {
   
-    if (state == LOGGER_DOWN) {
-        openlog(NULL, LOG_PID | LOG_PERROR | LOG_NDELAY, LOG_USER);
-        state = LOGGER_UP;
-    }
+    pthread_mutex_init(&logger_mutex, NULL);
+    openlog(NULL, LOG_PID | LOG_PERROR | LOG_NDELAY, LOG_USER);
 }
 
 
@@ -43,18 +47,14 @@ void logger_init() {
  */
 void logger_cleanup() {
 
-    if (state == LOGGER_UP) {
-        closelog();
-        state = LOGGER_DOWN;
-    }
+    closelog();
 }
 
 
 /**
  * Log a formatted message.  Exit if an error message.
  *
- * \note This function is not thread-safe.
- * \todo Make this function thread-safe (either mutex or unique copy of logger_msgstr inside function).
+ * \note This function is thread-safe and blocks until logging request is satisfied.
  *
  * \param priority A syslog priority level.
  * \param file Name of file originating log message.
@@ -67,9 +67,7 @@ void logger_log(int priority, const char *file, const int line,
 
     int n, m = 0;
 
-    if (state == LOGGER_DOWN) {
-        logger_init();
-    }
+    pthread_mutex_lock(&logger_mutex);
 
     /* write first part of message */
     n = snprintf(logger_msgstr, LOGGER_MSGSTRLEN, "%s %s:%d ", logger_prioritynames[LOG_PRI(priority)], file, line);
@@ -81,20 +79,6 @@ void logger_log(int priority, const char *file, const int line,
         m = vsnprintf(logger_msgstr+n, LOGGER_MSGSTRLEN-n, fmt, fmtargs);
         va_end(fmtargs);
     }
-
-    /**
-     * \todo Decide whether this function is responsible for also tacking on an error message. 
-     */
-//    #define MAX_ERROR_MSG_SIZE 256
-//    int priority = LOG_ERR;
-//    char errbuf[MAX_ERROR_MSG_SIZE];
-//    /* thread-safe error message grabbing */
-//    /* also, don't print Success when reporting an error, duh */
-//    if ((errno != 0) && (strerror_r(errno, errbuf, MAX_ERROR_MSG_SIZE) == 0)) {
-//        syslog(priority, "ERROR %s:%d %s: %s", file, line, msg, errbuf);
-//    } else {
-//        syslog(priority, "ERROR %s:%d %s", file, line, msg);
-//    }
 
     if (n + m < LOGGER_MSGSTRLEN) {
         /* no truncation occurred, good! */
@@ -112,4 +96,8 @@ void logger_log(int priority, const char *file, const int line,
     if (LOG_PRI(priority) == LOG_ERR) {
         exit(1);
     }
+
+    pthread_mutex_unlock(&logger_mutex);
 }
+
+/** \} */
