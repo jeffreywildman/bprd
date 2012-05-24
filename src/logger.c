@@ -72,7 +72,7 @@ void logger_log(int priority, const char *file, const int line,
     /* write first part of message */
     n = snprintf(logger_msgstr, LOGGER_MSGSTRLEN, "%s %s:%d ", logger_prioritynames[LOG_PRI(priority)], file, line);
 
-    /* if room, write second part of message*/
+    /* if room, write second part of message */
     if (n < LOGGER_MSGSTRLEN) {
         va_list fmtargs;
         va_start(fmtargs, fmt);

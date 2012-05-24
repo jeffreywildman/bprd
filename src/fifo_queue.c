@@ -3,18 +3,26 @@
  * (C) 2012 by Bradford Boyle <bradford@minerva.ece.drexel.edu>
  *
  */
+
+/**
+ * \defgroup FIFO_Queue
+ * \{
+ */
+
 #include "fifo_queue.h"
 
-#include <stdio.h>
-#include <netinet/in.h>
-#include <linux/types.h>
-#include <linux/netfilter.h>            /* for NF_ACCEPT/NF_DROP */
-#include <libnetfilter_queue/libnetfilter_queue.h>
+#include <netinet/in.h>                 /* must come before linux/netfilter.h so in_addr and in6_addr are defined */
+                       /* http://fixunix.com/debian/494850-bug-487103-linux-libc-dev-netfilter-h-needs-h-include.html */
+
+#include <stdio.h>                                  /* for printf() */
+#include <linux/netfilter.h>                        /* for NF_ACCEPT/NF_DROP */
+#include <libnetfilter_queue/libnetfilter_queue.h>  /* for nfq_set_verdict() */
 
 
-/*
+/**
  * Initialize the internal representation FIFO queue
- * queue - the queue
+ * 
+ * \param queue The queue.
  */
 void fifo_init(fifo_t *queue)
 {
@@ -26,11 +34,21 @@ void fifo_init(fifo_t *queue)
 	}
 }
 
-/*
+
+/**
  * Callback function for adding packets to userspace queue
- * function prototype specified by libnetfilter_queue
+ * 
+ * Function prototype specified by libnetfilter_queue
+ *
+ * \param qh
+ * \param nfmsg
+ * \param nfa
+ * \param data
  */
-int fifo_add_packet(nfq_qh_t *qh, nfgenmsg_t *nfmsg, nfq_data_t *nfa, void *data)
+int fifo_add_packet(nfq_qh_t *qh __attribute__ ((unused)), 
+                    nfgenmsg_t *nfmsg __attribute__ ((unused)), 
+                    nfq_data_t *nfa __attribute__ ((unused)), 
+                    void *data)
 {
 	fifo_t *queue = (fifo_t *) data;
 	if (queue)
@@ -42,10 +60,13 @@ int fifo_add_packet(nfq_qh_t *qh, nfgenmsg_t *nfmsg, nfq_data_t *nfa, void *data
 	return 0;
 }
 
-/*
- * send head of queue (i.e. the oldest packet in the queue)
- * queue - the queue from which to send a packet
- * uses nfq_set_verdict() with a verdic of NF_ACCEPT
+
+/**
+ * Send head of queue.
+ *
+ * The head of queue is the oldest packet in the queue.  Uses nfq_set_verdict() with a verdic of NF_ACCEPT.
+ * 
+ * \param queue The queue from which to send a packet.
  */
 void fifo_send_packet(fifo_t *queue)
 {
@@ -56,10 +77,13 @@ void fifo_send_packet(fifo_t *queue)
 	}
 }
 
-/*
- * drop head of queue (i.e. the oldest packet in the queue)
- * queue - the queue from which to drop a packet
- * uses nfq_set_verdict() with a verdic of NF_DROP
+
+/**
+ * Drop head of queue.  
+ *
+ * The head of queue is the oldest packet in the queue.  Uses nfq_set_verdict() with a verdic of NF_DROP.
+ *
+ * \param queue The queue from which to drop a packet.
  */
 void fifo_drop_packet(fifo_t *queue)
 {
@@ -70,9 +94,13 @@ void fifo_drop_packet(fifo_t *queue)
 	}
 }
 
-/*
- * returns the number of packets currently enqueued
- * queue - the queue that you want the length of
+
+/**
+ * Returns the number of packets currently enqueued.
+ *
+ * \param queue The queue that you want the length of.
+ *
+ * \return Number of packets.
  */
 inline uint32_t fifo_length(fifo_t *queue)
 {
@@ -85,9 +113,11 @@ inline uint32_t fifo_length(fifo_t *queue)
 	return length;
 }
 
-/*
- * Drops all currently enqueued packets in preparation for freeing memory
- * queue - the queue to drop all packets from
+
+/**
+ * Drops all currently enqueued packets in preparation for freeing memory.
+ * 
+ * \param queue The queue to drop all packets from.
  */
 void fifo_delete(fifo_t *queue)
 {
@@ -98,9 +128,11 @@ void fifo_delete(fifo_t *queue)
 	}
 }
 
-/*
- * Prints the id for all packets currently in the queue
- * queue - the queue that you want to print
+
+/**
+ * Prints the id for all packets currently in the queue.
+ *
+ * \param queue The queue that you want to print.
  */
 void fifo_print(fifo_t *queue)
 {
@@ -113,3 +145,5 @@ void fifo_print(fifo_t *queue)
 		}
 	}
 }
+
+/** \} */

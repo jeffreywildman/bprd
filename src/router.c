@@ -5,13 +5,10 @@
 
 #include "router.h"
 
-#include <stdio.h>
 #include <sys/socket.h>  /* must come before linux/netlink.h so sa_family_t is defined */
                          /* http://groups.google.com/group/linux.kernel/browse_thread/thread/6de65a3145007ae5?pli=1 */
 
 #include <linux/netlink.h>              /* for NETLINK_ROUTE */
-
-#include <net/if.h>
 
 #include <netlink/addr.h>               /* for nl_addr, nl_addr_build(), nl_addr_put() */
 #include <netlink/errno.h>              /* for nl_geterror() */
@@ -20,6 +17,7 @@
 #include <netlink/socket.h>             /* for nl_sock, nl_socket_alloc(), nl_socket_free() */
 
 #include "logger.h"
+
 
 static struct nl_sock *router_nlsk;     /**< Internal reference to the netlink socket. */
 
@@ -58,7 +56,7 @@ void router_cleanup() {
  * Update a route in the kernel's routing table.  
  *
  * \param dst Address of the destination.
- * \param nexthop Address of the nexthop.  If NULL, remove the route to dst.
+ * \param nh Address of the nexthop.  If NULL, remove the route to dst.
  * \param family Address family.
  * \param ifindex Index of the outgoing interface.
  */
