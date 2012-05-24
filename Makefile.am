@@ -3,7 +3,7 @@ include $(top_srcdir)/doc/doxygen.am
 
 SUBDIRS = lib src .
 
-# doc: doxygen-doc
+doc: doxygen-doc
 
 MOSTLYCLEANFILES = $(DX_CLEANFILES)
 

@@ -29,7 +29,7 @@ dnl ***************************************************************************
 DX_DOXYGEN_FEATURE([ON])
 DX_PDF_FEATURE([OFF])
 DX_PS_FEATURE([OFF])
-DX_INIT_DOXYGEN([$PACKAGE_NAME],[doc/doxygen.cfg],[doc/doxygen])
+DX_INIT_DOXYGEN([$PACKAGE_NAME],[doc/doxygen.cfg],[doc])
 AS_IF([test "${DX_FLAG_doc}" == 1],[enable_documentation=yes],[enable_documentation=no])
 
 
