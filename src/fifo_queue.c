@@ -5,7 +5,7 @@
  */
 
 /**
- * \defgroup FIFO_Queue
+ * \defgroup fifoqueue FIFO Queue
  * \{
  */
 
@@ -17,6 +17,20 @@
 #include <stdio.h>                                  /* for printf() */
 #include <linux/netfilter.h>                        /* for NF_ACCEPT/NF_DROP */
 #include <libnetfilter_queue/libnetfilter_queue.h>  /* for nfq_set_verdict() */
+
+
+/**
+ * \struct dubp_simple_fifo
+ * Simple FIFO queue for keep tracking packets currently being
+ * held in the kernel. Each enqueued packet is given an id number
+ * that is sequentially increasing.
+ * \var dubp_simple_fifo::head
+ * \brief The ID of the most recently released packet.
+ * \var dubp_simple_fifo::tail
+ * \brief The ID of the most recently enqueued packet.
+ * \var dubp_simple_fifo::qh
+ * \brief The netfilter queue handle.
+ */
 
 
 /**

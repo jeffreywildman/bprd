@@ -1,5 +1,6 @@
 /**
- * \defgroup Pidfile
+ * \defgroup pidfile Pidfile
+ * This module provides an API for creating and destroying a PID file associated with the running process.
  * \{
  */
 
@@ -28,7 +29,8 @@ static const int maxpidstrlen = 3*sizeof(pid_t)+1;
  *
  * \param pathname File to create, must not already exist.
  *
- * \return Returns 0 on success, otherwise -1 on error.
+ * \retval 0 On success.
+ * \retval -1 On error.
  */
 int pidfile_create(const char *pathname) {
 
@@ -59,7 +61,8 @@ int pidfile_create(const char *pathname) {
 /**
  * Destroy pidfile.
  *
- * \return Returns 0 on success, otherwise -1 on error.
+ * \retval 0 On success.
+ * \retval -1 On error.
  */
 int pidfile_destroy() {
 

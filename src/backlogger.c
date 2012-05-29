@@ -1,13 +1,15 @@
 /**
- * \defgroup Backlogger
+ * \defgroup backlogger Backlogger
  * \{
  */
 
-#include <pthread.h>
+#include <pthread.h>        /* for pthread_create() */
 #include <unistd.h>
-#include <sys/queue.h>
+#include <sys/queue.h>      /* for LIST_*() */
 #include <stdio.h>
 #include <stdlib.h>
+
+#include <libnetfilter_queue/libnetfilter_queue.h>  /* for nfq_*() */
 
 #include "dubp.h"
 #include "fifo_queue.h"
@@ -45,13 +47,13 @@ static void backlogger_init() {
     /* Unbind existing nf_queue handler for AF_INET (if any) */
     /** \todo extend to IPv6 handling */
     if (nfq_unbind_pf(h, AF_INET) < 0) {
-        DUBP_LOG_ERR("error during nfq_unbind_pf()");
+        DUBP_LOG_ERR("Error during nfq_unbind_pf()");
     }
 
     /* Bind nfnetlink_queue as nf_queue handler for AF_INET */
     /** \todo extend to IPv6 handling */
     if (nfq_bind_pf(h, AF_INET) < 0) {
-        DUBP_LOG_ERR("error during nfq_bind_pf()");
+        DUBP_LOG_ERR("Error during nfq_bind_pf()");
     }
 
     /* iterate through list looking for matching element */
@@ -63,12 +65,12 @@ static void backlogger_init() {
         /* Bind this socket to queue c->nfq_id */
         c->queue->qh = nfq_create_queue(h, c->nfq_id, &fifo_add_packet, c->queue);
         if (!c->queue->qh) {
-            DUBP_LOG_ERR("error during nfq_create_queue()");
+            DUBP_LOG_ERR("Error during nfq_create_queue()");
         }
 
         /* Set packet copy mode to NFQNL_COPY_META */
         if (nfq_set_mode(c->queue->qh, NFQNL_COPY_META, 0xffff) < 0) {
-            DUBP_LOG_ERR("can't set packet_copy mode");
+            DUBP_LOG_ERR("Can't set packet_copy mode");
         }
     }
 }
@@ -93,7 +95,7 @@ void backlogger_update() {
 /**
  * Loop endlessly and handle commodity packets.
  *
- * \param arg
+ * \param arg Unused.
  */
 static void *backlogger_thread_main(void *arg __attribute__((unused)) ) {
 

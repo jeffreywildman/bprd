@@ -1,5 +1,6 @@
 /**
- * \defgroup Router
+ * \defgroup router Router
+ * This module handles interfacing DUBP with the kernel's routing table to add/update/delete routes.
  * \{
  */
 
@@ -25,7 +26,8 @@ static struct nl_sock *router_nlsk;     /**< Internal reference to the netlink s
 /**
  * Initialize the router by binding and connecting a socket to the NETLINK_ROUTE protocol.
  *
- * \return Returns 0 on success, otherwise -1 on error.
+ * \retval 0 On success.
+ * \retval -1 On error.
  */
 int router_init() {
 
@@ -56,7 +58,7 @@ void router_cleanup() {
  * Update a route in the kernel's routing table.  
  *
  * \param dst Address of the destination.
- * \param nh Address of the nexthop.  If NULL, remove the route to dst.
+ * \param nh Address of the nexthop.  If NULL, remove the route to \a dst.
  * \param family Address family.
  * \param ifindex Index of the outgoing interface.
  */

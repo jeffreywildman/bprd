@@ -1,5 +1,6 @@
 /**
- * \defgroup Logger
+ * \defgroup logger Logger
+ * This module provides logging capabilities via syslog.
  * \{
  */
 
@@ -10,6 +11,20 @@
 #include <stdio.h>      /* for snprintf() */
 #include <stdlib.h>     /* for exit() */
 #include <syslog.h>
+
+
+/**
+ * \def DUBP_LOG_ERR(fmt,...) Logs an error message and exits.
+ * \param fmt Printf-style format string.
+ * \param ... Arguments corresponding to format string \a fmt.
+ */
+
+
+/**
+ * \def DUBP_LOG_DBG(fmt,...) Logs a debug message.
+ * \param fmt Printf-style format string.
+ * \param ... Arguments corresponding to format string \a fmt.
+ */
 
 
 /**
@@ -60,7 +75,7 @@ void logger_cleanup() {
  * \param file Name of file originating log message.
  * \param line Line number of file originating log message.
  * \param fmt Printf-style format string.
- * \param ... Arguments corresponding to format string fmt.
+ * \param ... Arguments corresponding to format string \a fmt.
  */
 void logger_log(int priority, const char *file, const int line, 
                 const char *fmt, ...) {
