@@ -10,6 +10,8 @@
 #include "dubp.h"
 #include "logger.h"
 #include "ntable.h"
+#include "neighbor.h"
+#include "commodity.h"
 
 
 static struct pbb_reader pbb_r;

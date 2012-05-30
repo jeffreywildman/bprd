@@ -1,5 +1,6 @@
 /**
  * \defgroup daemonizer Daemonizer
+ * This module handles the conversion of a DUBP process into a daemon.  
  * \{
  */
 

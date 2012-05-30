@@ -1,103 +1,35 @@
+/**
+ * \defgroup ntable Neighbor Table
+ * \{
+ */
+
 #include "ntable.h"
 
-#include <pthread.h>
-#include <sys/queue.h>
-#include <sys/types.h>
-#include <stdint.h>
-#include <stdlib.h>
+#include <assert.h>         /* for assert() */
+#include <pthread.h>        /* for pthread_mutex_*() */ 
+#include <time.h>           /* for time() */
+#include <sys/types.h>      /* for time_t */
 
 #include "dubp.h"
 #include "logger.h"
+#include "commodity.h"
+#include "neighbor.h"
 
 
-/* free memory associated with a commodity element 
-   e - element containing a commodity
+/**
+ * \struct neighbortable
+ * \var neighbortable::nlist
+ * List of neighbors.
+ * \var neighbortable::mutex
+ * Mutex lock for neighbor table.
  */
-static void del_data_c(void *data) {
-
-    assert(data);
-
-    commodity_t *c = (commodity_t *)data;
-    free(c);
-}
 
 
-/* commodity type-specific free list */
-void clist_free(list_t *l) {
-
-    list_free(l, del_data_c);
-}
-
-
-/* free memory associated with a neighbor element
-   e - element containing a neighbor entry
+/**
+ * Condition that neighbor has gone stale
+ *
+ * \param data Neighbor to evaluate.
  */
-static void del_data_n(void *data) {
-
-    assert(data);
-
-    neighbor_t *n = (neighbor_t *)data;
-    list_free(&n->clist, del_data_c);
-    free(n);
-}
-
-
-/* neighbor type-specific free list */
-void nlist_free(list_t *l) {
-    
-    list_free(l, del_data_n);
-}
-
-
-/* compare commodity elements
-   e1 - element 1
-   e2 - element 2
- */
-static int cmp_data_c(void *data1, void *data2) {
-
-    assert(data1 && data2);
-
-    commodity_t *c1 = (commodity_t *)data1;
-    commodity_t *c2 = (commodity_t *)data2;
-
-    return netaddr_cmp(&c1->cdata.addr, &c2->cdata.addr); 
-}
-
-
-/* commodity type-specific find */
-commodity_t *clist_find(list_t *l, commodity_t *c) {
-
-    elm_t *e = list_find(l, (void *)c, cmp_data_c);
-
-    return e ? (commodity_t *)e->data : NULL;
-}
-
-
-/* compare neighbor elements
-   e1 - element 1
-   e2 - element 2
- */
-static int cmp_data_n(void *data1, void *data2) {
-
-    assert(data1 && data2);
-
-    neighbor_t *n1 = (neighbor_t *)data1;
-    neighbor_t *n2 = (neighbor_t *)data2;
-
-    return netaddr_cmp(&n1->addr, &n2->addr); 
-}
-
-
-/* neighbor type-specific find*/
-neighbor_t *nlist_find(list_t *l, neighbor_t *n) {
-
-    elm_t *e = list_find(l, (void *)n, cmp_data_n);
-
-    return e ? (neighbor_t *)e->data : NULL;
-}
-
-
-/* condition that neighbor has gone stale */
 static int cond_n_expired(void *data) {
 
     assert(data);
@@ -107,17 +39,26 @@ static int cond_n_expired(void *data) {
 }
 
 
-/* remove any entries with update_time too stale
-TODO: allow timeout to be fractions of a second
+/**
+ * Remove any entries with update_time too stale.
+ *
+ * \todo Allow timeout to be fractions of a second.
+ *
+ * \param ntable Neighbor table to be refreshed.
  */
 void ntable_refresh(neighbortable_t *ntable) {
 
     assert(ntable);
 
-    list_remove_cond(&ntable->nlist, cond_n_expired, del_data_n);
+    nlist_remove_cond(&ntable->nlist, cond_n_expired);
 }
 
 
+/**
+ * Initialize the mutex on a neighbor table.
+ *
+ * \param ntable Neighbor table to initialize.
+ */
 void ntable_mutex_init(neighbortable_t *ntable) {
 
     assert(ntable);
@@ -127,7 +68,13 @@ void ntable_mutex_init(neighbortable_t *ntable) {
     }
 }
 
-
+/**
+ * Lock the mutex on a neighbor table.
+ *
+ * This function blocks until lock is obtained.
+ *
+ * \param ntable Neighbor table to lock.
+ */
 void ntable_mutex_lock(neighbortable_t *ntable) {
 
     assert(ntable);
@@ -138,6 +85,11 @@ void ntable_mutex_lock(neighbortable_t *ntable) {
 }
 
 
+/**
+ * Unlock the mutex on a neighbor table.
+ *
+ * \param ntable Neighbor table to unlock.
+ */
 void ntable_mutex_unlock(neighbortable_t *ntable) {
 
     assert(ntable);
@@ -149,6 +101,12 @@ void ntable_mutex_unlock(neighbortable_t *ntable) {
 
 
 #include <stdio.h>
+#include <sys/queue.h>
+/**
+ * Print out a neighbor table.
+ *
+ * \param ntable Neighbor table to print.
+ */
 void ntable_print(neighbortable_t *ntable) {
 
     elm_t *e,*f;
@@ -178,3 +136,5 @@ void ntable_print(neighbortable_t *ntable) {
         printf("\n");
     }
 }
+
+/** \} */

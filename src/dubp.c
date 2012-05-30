@@ -2,6 +2,11 @@
  * Drexel University Backpressure Daemon
  */
 
+/**
+ * \defgroup dubp DUBP
+ * \{
+ */
+
 #include "dubp.h"
 
 #include <arpa/inet.h>
@@ -17,6 +22,11 @@
 #include <sys/types.h>
 #include <unistd.h>             /* for fork() */
 
+#include <netlink/addr.h>
+#include <netlink/socket.h>
+#include <netlink/cache.h>
+#include <netlink/route/link.h>
+
 #include <common/netaddr.h>
 
 #include "pidfile.h"
@@ -27,6 +37,8 @@
 #include "daemonizer.h"
 #include "ntable.h"
 #include "util.h"
+#include "commodity.h"
+
 
 /* pre-initialization of runtime variables */
 dubp_t dubpd = {
@@ -37,8 +49,10 @@ dubp_t dubpd = {
     .pidfile = NULL,
     .sockfd = -1,
     .if_name = NULL,
+    .saddr_nl = NULL,
     .saddr = NULL,
     .saddrlen = 0,
+    .maddr_nl = NULL,
     .maddr = NULL,
     .maddrlen = 0
 };
@@ -50,8 +64,6 @@ static struct option pre_options[] = {
     {0,0,0,0}
 };
 static struct option long_options[] = {
-    /* these options set a flag */
-    /* these options do not set a flag */
     {"v4", no_argument, NULL, '4'},
     {"v6", no_argument, NULL, '6'},
     {"commodity", required_argument, NULL, 'r'},
@@ -79,7 +91,7 @@ static void usage() {
 
 
 /* initialize socket for hello messages */
-/* TODO: protocol v4/v6 independent */
+/** \todo Make protocol v4/v6 independent. */
 static void socket_init() {
 
     struct sockaddr_in saddr;
@@ -130,7 +142,7 @@ static void socket_init() {
 /* PRECONDITION: list is already initialized */
 void create_commodity(char *buf) {
 
-    /* TODO: appropriately size */
+    /** \todo Appropriately size addrstr */
     char addrstr[256];
     uint32_t nfq_id;
     commodity_t *c;
@@ -329,8 +341,32 @@ void dubp_init(int argc, char **argv) {
             DUBP_LOG_ERR("Unable to set default interface string");
         }
     }
+    /* set hardware interface index */
+    if ((dubpd.if_index = if_nametoindex(dubpd.if_name)) == 0) {
+        DUBP_LOG_ERR("Unable to get index of hardware interface: %s", dubpd.if_name);
+    }
 
     /* set interface address */
+    if (!dubpd.saddr_nl) {
+        /* get the current address configured on the hardware interface running DUBP */
+        struct nl_sock *nlsk = nl_socket_alloc();
+        nl_connect(nlsk,NETLINK_ROUTE);
+        struct nl_cache *cache;
+        rtnl_link_alloc_cache(nlsk,dubpd.ipver,&cache);
+        struct rtnl_link *link = rtnl_link_get(cache, dubpd.if_index);
+        dubpd.saddr_nl = nl_addr_clone(rtnl_link_get_addr(link));
+        rtnl_link_put(link);
+        nl_cache_free(cache);
+        nl_close(nlsk);
+        nl_socket_free(nlsk);
+    }
+    if (!dubpd.saddr_nl) {
+        DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", dubpd.if_name);
+    } else {
+        char buf[256];
+        DUBP_LOG_DBG("Primary address on interface %s is: %s", dubpd.if_name, nl_addr2str(dubpd.saddr_nl,buf,256));
+    }
+
     if (!dubpd.saddr) {
 
         /* get my current address on the above hardware interface */
@@ -362,12 +398,11 @@ void dubp_init(int argc, char **argv) {
         freeifaddrs(ifhead);
     }
     if (!dubpd.saddr) {
-        print_addrs();
         DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", dubpd.if_name);
     }
 
     /* set multicast address for hello messages */
-    /* TODO: remove assumption of IPv4 address */
+    /** \todo Remove assumption of IPv4 address. */
     struct sockaddr_in *maddr;
     if(!(maddr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in)))) {
         DUBP_LOG_ERR("Unable to allocate memory");
@@ -396,7 +431,7 @@ void dubp_init(int argc, char **argv) {
         if (com->cdata.addr.type != dubpd.ipver) {
             DUBP_LOG_ERR("Commodity destination IP address version does not match program's IP version");      
         }
-        /* TODO: verify uniqueness of nfq_id on each commodity */
+        /** \todo Verify uniqueness of nfq_id on each commodity. */
     }
 }
 
@@ -418,7 +453,9 @@ int main(int argc, char **argv) {
     /* start up backlog thread */
     backlogger_thread_create();
 
-    /* TODO: wait until signal from the backlog thread instead of sleeping here! */
+    /** \todo Wait until signal from the backlog thread instead of sleeping here! */
+    /* if we don't wait and call backlogger_update too quickly, then data structures aren't properly initialized and bad
+     * things happen... */
     sleep(1);
 
     /* start the hello threads */
@@ -426,13 +463,15 @@ int main(int argc, char **argv) {
     hello_writer_thread_create();
 
     /* just hang out here for a while */
-    /* TODO: this 'thread' will periodically poll commodity data, 
-       update backlogs, set routes, release data packets to kernel */
+    /** \todo This 'thread' will periodically poll commodity data, 
+     * update backlogs, set routes, release data packets to kernel 
+     */
     while(1) {
 
-        /* TODO: determine which backlog update scheme is best: */
-        /* TODO: i) better if we only update periodically here, or */
-        /* TODO: ii) better if we update each time we need the backlog */
+        /** \todo Determine which backlog update scheme is best:
+         * i) better if we only update periodically here, or
+         * ii) better if we update each time we need the backlog 
+         */
         backlogger_update();
 
         sleep(1);
@@ -446,3 +485,5 @@ int main(int argc, char **argv) {
 
     return 0;
 }
+
+/** \} */

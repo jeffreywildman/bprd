@@ -48,10 +48,10 @@ void list_insert(list_t *l, void *data) {
 
 
 /** 
- * Free a list.
+ * Free the contents of a list.
  *
  * \param l The head of a list.
- * \param del_data Pointer to a function that accepts (void *data) within an element of \a l.
+ * \param del_data Pointer to a function that accepts (void *data) within an element of \a l and frees it.
  */
 void list_free(list_t *l, void (*del_data)(void *)) {
 
@@ -99,7 +99,7 @@ elm_t *list_find(list_t *l, void *data, int (*cmp_data)(void *, void *)) {
  * \param l The head of a list.
  * \param cond_data Pointer to a function that accepts (void *data) within an element of \a l and returns a 
  * Boolean integer indicating whether or not the data meets a condition.
- * \param del_data Pointer to a function that accepts (void *data) within an element of \a l.
+ * \param del_data Pointer to a function that accepts (void *data) within an element of \a l and frees it.
  */
 void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_data)(void *)) {
      

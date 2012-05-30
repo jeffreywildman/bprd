@@ -16,6 +16,7 @@
 #include "fifo_queue.h"
 #include "logger.h"
 #include "ntable.h"
+#include "commodity.h"
 
 
 static struct nfq_handle *h;    /**< Handle to netfilter queue library. */
@@ -78,18 +79,56 @@ static void backlogger_init() {
 
 
 /**
- * Update the backlogs on each commodity.
+ * Update the backlogs on each commodity.  Update the backlog differential to each neighbor for each commodity.
  */
 void backlogger_update() {
 
-    elm_t *e;
-    commodity_t *c;
+    elm_t *e, *f;
+//    neighbor_t *n;
+    commodity_t *c, *ctemp, *copt;
+    uint32_t diff, tempdiff;
     
     for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
             c = (commodity_t *)e->data;
             assert(c->queue);
             c->cdata.backlog = fifo_length(c->queue);
     }
+
+//    ntable_mutex_lock(&dubpd.ntable);
+//
+//    /* for each of my commodities */
+//    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+//        c = (commodity_t *)e->data;  
+//
+//        if ()
+//
+//        /* try to find this commodity at each neighbor */
+//        for(f = LIST_FIRST(&dubpd.ntable.nlist); f != NULL; f = LIST_NEXT(f, elms)) {
+//            n = (neighbor_t *)f->data;
+//
+//            if ((ctemp = clist_find(&n.clist, c)) == NULL) {
+//                DUBP_LOG_ERR("Neighbor doesn't know about commodity that I know about");
+//            }
+//
+//            if (!n->bidir) {
+//                /* I can hear the neighbor, but not sure if I can speak to the neighbor, skip him */
+//                continue;
+//            }
+//
+//            if (netaddr_cmp(n->addr,ctemp->cdata.addr)) {
+//                /* The neighbor is the commodity's destination, send to him */
+//                /** \todo Fully consider the built-in assumption -> unicast commodities (single-destination) */
+//
+//                /* \todo set next hop for this commodity */
+//                break;
+//            }
+//
+//            c->cdata.backlog - ctemp->cdata.backlog
+//
+//        }
+//    }
+//
+//    ntable_mutex_unlock(&dubpd.ntable);
 }
 
 

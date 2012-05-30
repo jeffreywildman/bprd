@@ -12,6 +12,8 @@
 
 #include "dubp.h"
 #include "logger.h"
+#include "commodity.h"
+#include "neighbor.h"
 
 static struct pbb_writer pbb_w;
 static struct pbb_writer_interface pbb_iface;

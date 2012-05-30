@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <sys/socket.h>
 
+#include <netlink/addr.h>
+
 #include "ntable.h"
 
 /* RFC 5498 - IANA Allocations for Mobile Ad Hoc Network (MANET) Protocols */
@@ -22,8 +24,6 @@
 #define DUBP_DEFAULT_CONLEN 25
 /**< \todo Move this into a config.h. */
 #define DUBP_DEFAULT_CONSTR "/etc/dubpd.conf"
-/* the following assumes dubpd is run from project's top level directory */
-//#define DUBP_DEFAULT_CONSTR "./scripts/dubp.conf"
 
 #define DUBP_MSG_TYPE_HELLO 1
 
@@ -33,6 +33,7 @@
 
 
 /** 
+ * \struct dubp
  * Data structure defining a DUBP process.
  */
 typedef struct dubp {
@@ -43,13 +44,15 @@ typedef struct dubp {
     char    *pidfile;           /**< Pidfile location. */
 
     /** \todo Allow dubpd to run over multiple interfaces. */
-    unsigned int ifindex;       /**< Index of the hardware interface running DUBP. */
+    unsigned int if_index;      /**< Index of the hardware interface running DUBP. */
     char *if_name;              /**< Name of the hardware interface running DUBP. */
     
     int sockfd;                 /**< Socket descriptor running DUBP. */
+    struct nl_addr *saddr_nl;
     struct sockaddr *saddr;     /**< Primary address assigned to interface \a if_name. */
     uint8_t saddrlen;           /**< Size of address \a saddr (bytes). */
 
+    struct nl_addr *maddr_nl;
     struct sockaddr *maddr;     /**< Multicast address used for hello messaging. */
     uint8_t maddrlen;           /**< Size of address \a maddr (bytes). */
 
