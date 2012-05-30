@@ -8,10 +8,12 @@ dubpd_LDADD = -lpthread \
 			  $(top_srcdir)/lib/packetbb/libpacketbb.la
 dubpd_SOURCES = \
 				backlogger.c \
+				daemonizer.c \
 				dubp.c \
 				fifo_queue.c \
 				hello_reader.c \
 				hello_writer.c \
+				list.c \
 				logger.c \
 				ntable.c \
 				pidfile.c \

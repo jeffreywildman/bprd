@@ -5,43 +5,42 @@
 #include "dubp.h"
 
 #include <arpa/inet.h>
-#include <errno.h>
 #include <getopt.h>
 #include <ifaddrs.h>
 #include <net/if.h>
 #include <netinet/in.h>
 #include <pthread.h>
-#include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h>             /* for exit() */
 #include <string.h>
 #include <sys/socket.h>
-#include <sys/stat.h>
 #include <sys/types.h>
-#include <unistd.h>
+#include <unistd.h>             /* for fork() */
 
 #include <common/netaddr.h>
 
 #include "pidfile.h"
 #include "logger.h"
+
 #include "hello.h"
 #include "backlogger.h"
+#include "daemonizer.h"
 #include "ntable.h"
 #include "util.h"
 
 /* pre-initialization of runtime variables */
 dubp_t dubpd = {
-.program = NULL,
-.dmode = 0,
-.ipver = AF_INET,
-.confile = NULL,
-.pidfile = NULL,
-.sockfd = -1,
-.if_name = NULL,
-.saddr = NULL,
-.saddrlen = 0,
-.maddr = NULL,
-.maddrlen = 0
+    .program = NULL,
+    .dmode = 0,
+    .ipver = AF_INET,
+    .confile = NULL,
+    .pidfile = NULL,
+    .sockfd = -1,
+    .if_name = NULL,
+    .saddr = NULL,
+    .saddrlen = 0,
+    .maddr = NULL,
+    .maddrlen = 0
 };
 
 /* options acted upon immediately before others */
@@ -76,76 +75,6 @@ static void usage() {
     printf("  -h, --help            \tprint this help message\n");
     printf("  -i, --interface=IFACE \trun the protocol over interface IFACE (default is eth0)\n");
     printf("  -p, --pidfile=FILE    \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
-}
-
-
-static void daemon_handler_sigterm(int signum __attribute__ ((unused))) {
-
-    if (pidfile_destroy(dubpd.pidfile) < 0) {
-        DUBP_LOG_ERR("Unable to destroy pidfile");        
-    }
-    exit(1);
-}
-
-
-static int daemon_init() {
-
-    pid_t pid, sid;
-
-    if ((pid = fork()) < 0) {
-        DUBP_LOG_ERR("Unable to create interim daemon process");
-    } else if (pid > 0) {
-        /* this is the parent process */
-        exit(0);
-    } 
-    /* this is the interim daemon child process */
-
-    /* make child process a group leader */
-    if ((sid = setsid()) < 0) {
-        DUBP_LOG_ERR("Unable to make interim daemon a process group leader");
-    }
-
-    /* ignore signal hang up */
-    signal(SIGHUP, SIG_IGN);
-    if ((pid = fork()) < 0) {
-        DUBP_LOG_ERR("Unable to create daemon process");
-    } else if (pid > 0) {
-        /* this is the interim daemon process */
-        exit(0);
-    }
-    /* this is the daemon process */
-
-    /* set file mode mask */
-    umask(0);
-
-    /* get our SIGTERM handler ready */
-    struct sigaction sa;
-    sa.sa_handler = daemon_handler_sigterm;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-
-    /* TODO: attempt to create lock on /var/run/pid file before creating daemon */
-    if (pidfile_create(dubpd.pidfile) < 0) {
-        DUBP_LOG_ERR("Unable to create pidfile");
-    }
-
-    /* install our SIGTERM handler */
-    if (sigaction(SIGTERM, &sa, NULL) < 0) {
-        DUBP_LOG_ERR("Unable to set up SIGTERM handler");
-        if (pidfile_destroy(dubpd.pidfile) < 0) {
-            DUBP_LOG_ERR("Unable to destroy pidfile");   
-        }
-    }
-
-    /* change current directory to root */
-    chdir("/");
-
-    /* close standard file descriptors */
-    close(STDIN_FILENO);
-    close(STDOUT_FILENO);
-    close(STDERR_FILENO);
-
-    return 0;
 }
 
 
@@ -237,7 +166,7 @@ int confile_read() {
     char buf[256];
 
     if ((confd = fopen(dubpd.confile, "r")) == NULL) {
-        return -errno;
+        return -1;
     } 
 
     if (fileno(confd) < 0) {
@@ -285,7 +214,7 @@ void dubp_init(int argc, char **argv) {
 
     int lo_index;
     opterr = 0;
-   
+
     /* first check for pre-options within arguments */
     while ((c = getopt_long_only(argc, argv, "-c:h", pre_options, &lo_index)) != -1) {
         switch (c) {
@@ -315,7 +244,7 @@ void dubp_init(int argc, char **argv) {
 
     /* read from configuration file before parsing remaining command-line args */
     if (confile_read() < 0) {
-        DUBP_LOG_DBG("Unable to open configuration file");
+        DUBP_LOG_DBG("Unable to open configuration file: %s", dubpd.confile);
     }
 
     /* reset optind to reparse command-line args */
@@ -416,7 +345,7 @@ void dubp_init(int argc, char **argv) {
             if (iflist->ifa_name && strcmp(iflist->ifa_name,dubpd.if_name) == 0) {
                 unsigned int family = iflist->ifa_addr->sa_family;
                 if (iflist->ifa_addr && family == (uint8_t)dubpd.ipver) {
-                    /* TODO: validate or remove assumption that first IPv4/v6 address on the desired interface is the correct one! */
+                    /** \todo validate or remove assumption that first IPv4/v6 address on the desired interface is the correct one! */
                     if ((uint8_t)dubpd.ipver == AF_INET) {
                         dubpd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in_t));
                         dubpd.saddrlen = sizeof(sockaddr_in_t);
@@ -433,7 +362,8 @@ void dubp_init(int argc, char **argv) {
         freeifaddrs(ifhead);
     }
     if (!dubpd.saddr) {
-        DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface");
+        print_addrs();
+        DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", dubpd.if_name);
     }
 
     /* set multicast address for hello messages */
@@ -480,7 +410,7 @@ int main(int argc, char **argv) {
     dubp_init(argc, argv);
 
     /* switch over to daemon process */
-    if (dubpd.dmode) {daemon_init();}
+    if (dubpd.dmode) {daemon_create();}
 
     /* start up socket */
     socket_init();

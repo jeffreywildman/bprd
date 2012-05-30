@@ -15,4 +15,6 @@ typedef struct sockaddr_in6 sockaddr_in6_t;
 extern int addr2str(const sockaddr_t *saddr, char *host, size_t hostlen);
 extern void print_args(int argc, char **argv);
 
+extern void print_addrs();
+
 #endif /* __UTIL_H */

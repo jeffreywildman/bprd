@@ -10,6 +10,8 @@
 
 #include "dubp.h"
 
+#define ETH_ALEN 6
+
 
 void mac_addr_n2a(char *mac_addr, unsigned char *arg)
 {

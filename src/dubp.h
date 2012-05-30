@@ -6,8 +6,6 @@
 
 #include "ntable.h"
 
-#define ETH_ALEN 6
-
 /* RFC 5498 - IANA Allocations for Mobile Ad Hoc Network (MANET) Protocols */
 #define MANET_LINKLOCAL_ROUTERS_V4 "224.0.0.109"
 #define MANET_LINKLOCAL_ROUTERS_V6 "FF02::6D"
@@ -18,11 +16,11 @@
 #define DUBP_DEFAULT_HELLO_INTERVAL 1   /* seconds */
 #define DUBP_DEFAULT_NEIGHBOR_TIMEOUT 5 /* # of missed hello messages */
 
-/* TODO: move this into a config.h */
+/**< \todo Move this into a config.h. */
 #define DUBP_DEFAULT_PIDLEN 25
 #define DUBP_DEFAULT_PIDSTR "/var/run/dubpd.pid"
 #define DUBP_DEFAULT_CONLEN 25
-/* TODO: move this into a config.h!!! */
+/**< \todo Move this into a config.h. */
 #define DUBP_DEFAULT_CONSTR "/etc/dubpd.conf"
 /* the following assumes dubpd is run from project's top level directory */
 //#define DUBP_DEFAULT_CONSTR "./scripts/dubp.conf"
@@ -34,40 +32,43 @@
 #define DUBP_MSGTLV_TYPE_BACKLOG 3
 
 
-/* dubpd instance */
+/** 
+ * Data structure defining a DUBP process.
+ */
 typedef struct dubp {
-    char    *program;       /* program name */
-    int     dmode;    
-    int     ipver;         
-    char    *confile;       /* config file location */
-    char    *pidfile;       /* pidfile location */
+    char    *program;           /**< Program name. */
+    int     dmode;              /**< Boolean integer indicating if process is a daemon. */
+    int     ipver;              /**< IP version. */
+    char    *confile;           /**< Config file location. */
+    char    *pidfile;           /**< Pidfile location. */
 
-    int sockfd;         /* socket running dubpd */
+    /** \todo Allow dubpd to run over multiple interfaces. */
+    unsigned int ifindex;       /**< Index of the hardware interface running DUBP. */
+    char *if_name;              /**< Name of the hardware interface running DUBP. */
+    
+    int sockfd;                 /**< Socket descriptor running DUBP. */
+    struct sockaddr *saddr;     /**< Primary address assigned to interface \a if_name. */
+    uint8_t saddrlen;           /**< Size of address \a saddr (bytes). */
 
-    /* TODO: allow dubpd to run over mutiple interfaces */
-    char *if_name;              /* HW interface running dubpd */
-    struct sockaddr *saddr;     /* generic structure address running dubpd */
-    uint8_t saddrlen;           /* size of socket address structure */
-
-    struct sockaddr *maddr;     /* generic structure for multicast address */
-    uint8_t maddrlen;           /* size of multicast address structure */
+    struct sockaddr *maddr;     /**< Multicast address used for hello messaging. */
+    uint8_t maddrlen;           /**< Size of address \a maddr (bytes). */
 
     /* hello thread data */   
-    pthread_t hello_writer_tid;
-    pthread_t hello_reader_tid;
-    uint16_t hello_seqno;
+    pthread_t hello_writer_tid; /**< ID of the hello message writing thread. */
+    pthread_t hello_reader_tid; /**< ID of the hello message reader thread. */
+    uint16_t hello_seqno;       /**< Last sequence used in a transmitted hello message. */
 
     /* timers */
-    uint8_t hello_interval;     /* seconds */
-    uint8_t neighbor_timeout;   /* seconds */
+    uint8_t hello_interval;     /**< Time period between hello messages (seconds). */
+    uint8_t neighbor_timeout;   /**< Time period (seconds). */
    
     /* commodity table */
-    list_t clist;               /* my commodity list */
-    /* TODO: do i need a mutex for my commodity list? */
-    pthread_t backlogger_tid;
+    list_t clist;               /**< Commodity list. */
+    /** \todo Determine if a mutex is needed for the commodity list. */
+    pthread_t backlogger_tid;   /**< ID of the backlogger thread. */
 
     /* neighbor table */
-    neighbortable_t ntable;
+    neighbortable_t ntable;     /**< Neighbor table. */
 
 } dubp_t;
 

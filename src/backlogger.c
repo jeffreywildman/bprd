@@ -1,5 +1,6 @@
 /**
  * \defgroup backlogger Backlogger
+ * This module manages tracking commodity levels for the DUBP process.
  * \{
  */
 

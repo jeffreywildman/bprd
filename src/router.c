@@ -1,6 +1,6 @@
 /**
  * \defgroup router Router
- * This module handles interfacing DUBP with the kernel's routing table to add/update/delete routes.
+ * This module interfaces the DUBP process with the kernel's routing table to add/update/delete routes.
  * \{
  */
 

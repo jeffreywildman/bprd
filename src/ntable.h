@@ -2,33 +2,16 @@
 #define __NTABLE_H
 
 #include <stdint.h>
-#include <sys/queue.h>
 #include <sys/types.h>
 
 #include <common/netaddr.h>
 
+#include "list.h"
 #include "fifo_queue.h"
 
 typedef struct netaddr netaddr_t;
 typedef union netaddr_socket netaddr_socket_t;
 typedef struct netaddr_str netaddr_str_t;
-
-
-/* TODO: move list functions into separate file */
-/* list definitions */
-typedef LIST_HEAD(list, elm) list_t;
-typedef struct elm {
-    void *data;
-    LIST_ENTRY(elm) elms;
-} elm_t;
-
-/* generic list functions */
-extern void list_init(list_t *l);
-extern void list_insert(list_t *l, void *data);
-extern void list_free(list_t *l, void (del_data)(void *));
-extern elm_t *list_find(list_t *l, void *data, int (*cmp_data)(void *, void *));
-extern void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_data)(void *));
-
 
 /* commodity definition */
 typedef struct commodity_short {

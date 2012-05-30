@@ -25,16 +25,16 @@
  * held in the kernel. Each enqueued packet is given an id number
  * that is sequentially increasing.
  * \var dubp_simple_fifo::head
- * \brief The ID of the most recently released packet.
+ * The ID of the most recently released packet.
  * \var dubp_simple_fifo::tail
- * \brief The ID of the most recently enqueued packet.
+ * The ID of the most recently enqueued packet.
  * \var dubp_simple_fifo::qh
- * \brief The netfilter queue handle.
+ * The netfilter queue handle.
  */
 
 
 /**
- * Initialize the internal representation FIFO queue
+ * Initialize the internal representation FIFO queue.
  * 
  * \param queue The queue.
  */
@@ -50,7 +50,7 @@ void fifo_init(fifo_t *queue)
 
 
 /**
- * Callback function for adding packets to userspace queue
+ * Callback function for adding packets to userspace queue.
  * 
  * Function prototype specified by libnetfilter_queue
  *
@@ -112,7 +112,7 @@ void fifo_drop_packet(fifo_t *queue)
 /**
  * Returns the number of packets currently enqueued.
  *
- * \param queue The queue that you want the length of.
+ * \param queue The queue whose length will be reported.
  *
  * \return Number of packets.
  */
@@ -146,7 +146,7 @@ void fifo_delete(fifo_t *queue)
 /**
  * Prints the id for all packets currently in the queue.
  *
- * \param queue The queue that you want to print.
+ * \param queue The queue to be printed.
  */
 void fifo_print(fifo_t *queue)
 {

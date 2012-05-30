@@ -10,46 +10,6 @@
 #include "logger.h"
 
 
-/* initialize the list
-   l - the head of a list
- */
-void list_init(list_t *l) {
-
-    assert(l);
-    LIST_INIT(l);
-}
-
-
-/* insert the element into the list
-   l - the head of a list
-   data - the data to be inserted
- */
-void list_insert(list_t *l, void *data) {
-
-    assert(l && data);
-    elm_t *e = (elm_t *)malloc(sizeof(elm_t));
-    memset(e, 0, sizeof(elm_t));
-    e->data = data;
-    LIST_INSERT_HEAD(l, e, elms);
-}
-
-
-/* free the list 
-   l - the head of a list
-   del - function pointer to properly free (void *data) within e
- */
-void list_free(list_t *l, void (*del_data)(void *)) {
-
-    assert(l && del_data);
-    while(!LIST_EMPTY(l)) {
-        elm_t *e = LIST_FIRST(l);
-        LIST_REMOVE(e, elms);
-        del_data(e->data);
-        free(e);
-    }
-}
-
-
 /* free memory associated with a commodity element 
    e - element containing a commodity
  */
@@ -86,31 +46,6 @@ static void del_data_n(void *data) {
 void nlist_free(list_t *l) {
     
     list_free(l, del_data_n);
-}
-
-
-/* find and return the first element matching 
- l - the head of a list
- e - the element to be found
- cmp - function pointer to properly compare (void *data) within elements
- returns a reference to the neighbor entry if found
- returns NULL if neighbor entry not found
- */
-elm_t *list_find(list_t *l, void *data, int (*cmp_data)(void *, void *)) {
-
-    assert(l && data && cmp_data);
-   
-    elm_t *f;
-
-    /* iterate through list looking for matching element */
-    for (f = LIST_FIRST(l); f != NULL; f = LIST_NEXT(f, elms)) {
-        if (cmp_data(data, f->data) == 0) {
-            return f;
-        }
-    }
-
-    /* element has not been found */
-    return NULL;
 }
 
 
@@ -159,35 +94,6 @@ neighbor_t *nlist_find(list_t *l, neighbor_t *n) {
     elm_t *e = list_find(l, (void *)n, cmp_data_n);
 
     return e ? (neighbor_t *)e->data : NULL;
-}
-
-
-/* remove any entries that satisfy a condition */
-void list_remove_cond(list_t *l, int (*cond_data)(void *), void (*del_data)(void *)) {
-     
-    assert(l && cond_data && del_data);
-
-    elm_t *eprev = NULL;
-    elm_t *ecur  = LIST_FIRST(l);
-
-    while(ecur) {
-        if (cond_data(ecur->data)) {
-            /* element meets condition, remove from list and free */
-            LIST_REMOVE(ecur, elms);
-            del_data(ecur->data);
-            free(ecur);
-            if (!eprev) {
-                ecur = LIST_FIRST(l);
-            } else {
-                ecur = LIST_NEXT(eprev, elms);
-            }
-        } else {
-            /* element does not meet condition, advance iterators */
-            eprev = ecur;
-            ecur = LIST_NEXT(ecur, elms);
-        }
-    }
-
 }
 
 
