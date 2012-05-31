@@ -207,6 +207,69 @@ int confile_read() {
 }
 
 
+/* get the primary address on the desired interface */
+void create_primary() {
+
+    struct ifaddrs *iflist, *ifhead;
+
+    if (dubpd.ipver == AF_INET6) {dubpd.saddrlen = sizeof(sockaddr_in6_t);} 
+    else {dubpd.saddrlen = sizeof(sockaddr_in_t);}
+
+    if (getifaddrs(&iflist) < 0) {
+        DUBP_LOG_ERR("Unable to get interface addresses");
+    }
+
+    ifhead = iflist;
+
+    while(iflist) {
+        if (iflist->ifa_name && strcmp(iflist->ifa_name,dubpd.if_name) == 0) {
+            unsigned int family = iflist->ifa_addr->sa_family;
+            if (iflist->ifa_addr && family == (uint8_t)dubpd.ipver) {
+                /** \todo validate or remove assumption that first IPv4/v6 address on the desired interface is the correct one! */
+                if ((dubpd.saddr = (sockaddr_t *)malloc(dubpd.saddrlen)) == NULL) {
+                    DUBP_LOG_ERR("Unable to allocate memory");
+                }
+                memcpy(dubpd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,dubpd.saddrlen);
+                break;
+            }
+        }
+        iflist = iflist->ifa_next;
+    }
+    freeifaddrs(ifhead);
+}
+
+
+/* set multicast address for sending hello messages */
+void create_multicast() {
+
+    void *addr;
+    int err;
+
+    if (dubpd.ipver == AF_INET6) {dubpd.maddrlen = sizeof(sockaddr_in6_t);} 
+    else {dubpd.maddrlen = sizeof(sockaddr_in_t);}
+
+    if ((dubpd.maddr = (struct sockaddr_t *)malloc(dubpd.maddrlen)) == NULL) {
+        DUBP_LOG_ERR("Unable to allocate memory");
+    }
+    memset(dubpd.maddr, 0, sizeof(dubpd.maddrlen));
+    dubpd.maddr->sa_family = dubpd.ipver;
+
+    if (dubpd.ipver == AF_INET6) {
+        addr = &(((sockaddr_in6_t *)dubpd.maddr)->sin6_addr);
+        err = inet_pton(dubpd.ipver, MANET_LINKLOCAL_ROUTERS_V6, addr);
+        ((sockaddr_in6_t *)dubpd.maddr)->sin6_port = htons(IPPORT_MANET);
+    } else {
+        addr = &(((sockaddr_in_t *)dubpd.maddr)->sin_addr);
+        err = inet_pton(dubpd.ipver, MANET_LINKLOCAL_ROUTERS_V4, addr);
+        ((sockaddr_in_t *)dubpd.maddr)->sin_port = htons(IPPORT_MANET);
+    } 
+
+    if (err <= 0) {
+        DUBP_LOG_ERR("Unable to convert MANET link local address");
+    }
+}
+
+
 /* initialize dubp instance */
 /* precedence of options, i) command-line, ii) config file, iii) in-code defaults */
 /* bash_completion of command-line args */
@@ -332,7 +395,7 @@ void dubp_init(int argc, char **argv) {
         }
     }
 
-    /* set hardware interface name */
+    /* get hardware interface name */
     if (!dubpd.if_name) {
         if (!(dubpd.if_name = (char *)malloc(IF_NAMESIZE*sizeof(char)))) {
             DUBP_LOG_ERR("Unable to allocate memory");
@@ -341,81 +404,31 @@ void dubp_init(int argc, char **argv) {
             DUBP_LOG_ERR("Unable to set default interface string");
         }
     }
-    /* set hardware interface index */
+    /* get hardware interface index */
     if ((dubpd.if_index = if_nametoindex(dubpd.if_name)) == 0) {
         DUBP_LOG_ERR("Unable to get index of hardware interface: %s", dubpd.if_name);
     }
 
-    /* set interface address */
-    if (!dubpd.saddr_nl) {
-        /* get the current address configured on the hardware interface running DUBP */
-        struct nl_sock *nlsk = nl_socket_alloc();
-        nl_connect(nlsk,NETLINK_ROUTE);
-        struct nl_cache *cache;
-        rtnl_link_alloc_cache(nlsk,dubpd.ipver,&cache);
-        struct rtnl_link *link = rtnl_link_get(cache, dubpd.if_index);
-        dubpd.saddr_nl = nl_addr_clone(rtnl_link_get_addr(link));
-        rtnl_link_put(link);
-        nl_cache_free(cache);
-        nl_close(nlsk);
-        nl_socket_free(nlsk);
-    }
-    if (!dubpd.saddr_nl) {
-        DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", dubpd.if_name);
-    } else {
-        char buf[256];
-        DUBP_LOG_DBG("Primary address on interface %s is: %s", dubpd.if_name, nl_addr2str(dubpd.saddr_nl,buf,256));
+    /* check ipver */
+    if (dubpd.ipver != AF_INET && dubpd.ipver != AF_INET6) {
+        DUBP_LOG_ERR("Unknown IP version");
     }
 
+    /* get current address on the hardware interface running DUBP */
     if (!dubpd.saddr) {
-
-        /* get my current address on the above hardware interface */
-        struct ifaddrs *iflist, *ifhead;
-        if (getifaddrs(&iflist) < 0) {
-            DUBP_LOG_ERR("Unable to get interface addresses");
-        }
-
-        ifhead = iflist;
-
-        while(iflist) {
-            if (iflist->ifa_name && strcmp(iflist->ifa_name,dubpd.if_name) == 0) {
-                unsigned int family = iflist->ifa_addr->sa_family;
-                if (iflist->ifa_addr && family == (uint8_t)dubpd.ipver) {
-                    /** \todo validate or remove assumption that first IPv4/v6 address on the desired interface is the correct one! */
-                    if ((uint8_t)dubpd.ipver == AF_INET) {
-                        dubpd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in_t));
-                        dubpd.saddrlen = sizeof(sockaddr_in_t);
-                    } else if ((uint8_t)dubpd.ipver == AF_INET6) {
-                        dubpd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in6_t));
-                        dubpd.saddrlen = sizeof(sockaddr_in6_t);
-                    } else {DUBP_LOG_ERR("Unknown IP version");}
-                    memcpy(dubpd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,dubpd.saddrlen);
-                    break;
-                }
-            }
-            iflist = iflist->ifa_next;
-        }
-        freeifaddrs(ifhead);
+        create_primary();
     }
     if (!dubpd.saddr) {
         DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", dubpd.if_name);
     }
 
-    /* set multicast address for hello messages */
-    /** \todo Remove assumption of IPv4 address. */
-    struct sockaddr_in *maddr;
-    if(!(maddr = (struct sockaddr_in *)malloc(sizeof(struct sockaddr_in)))) {
-        DUBP_LOG_ERR("Unable to allocate memory");
+    /* get multicast address for hello messages */
+    if (!dubpd.maddr) {
+        create_multicast();
     }
-    memset(maddr, 0, sizeof(struct sockaddr_in));
-    maddr->sin_family = AF_INET;
-    if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &maddr->sin_addr.s_addr) <= 0) {
-        DUBP_LOG_ERR("Unable to convert MANET link local address");
+    if (!dubpd.maddr) {
+        DUBP_LOG_ERR("Unable to create multicast address");
     }
-    maddr->sin_port = htons(IPPORT_MANET);
-
-    dubpd.maddr = (struct sockaddr *)maddr;
-    dubpd.maddrlen = sizeof(*maddr);
 
     /* timers */
     dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
