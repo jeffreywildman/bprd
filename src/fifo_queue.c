@@ -67,6 +67,7 @@ int fifo_add_packet(nfq_qh_t *qh __attribute__ ((unused)),
 	fifo_t *queue = (fifo_t *) data;
 	if (queue)
 	{
+        printf("Adding one to end of queue!");
 		(queue)->tail += 1;
 	}
 

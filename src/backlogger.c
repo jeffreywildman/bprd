@@ -5,20 +5,17 @@
  */
 
 #include <pthread.h>        /* for pthread_create() */
-#include <unistd.h>
-#include <sys/queue.h>      /* for LIST_*() */
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/queue.h>      /* for LIST_*() */
+#include <unistd.h>
 
 #include <libnetfilter_queue/libnetfilter_queue.h>  /* for nfq_*() */
 
+#include "commodity.h"
 #include "dubp.h"
 #include "fifo_queue.h"
 #include "logger.h"
-#include "ntable.h"
-#include "commodity.h"
-#include "neighbor.h"
-#include "router.h"
 
 
 static struct nfq_handle *h;    /**< Handle to netfilter queue library. */
@@ -27,7 +24,8 @@ static struct nfq_handle *h;    /**< Handle to netfilter queue library. */
 /**
  * Initialize the backlogger thread.
  *
- * Open connection to libnetfilter and set up necessary queues to track commodities.
+ * Open connection to libnetfilter, link each commodity with a netfilter queue, and add iptables rules to filter 
+ * commodities into their respective netfilter queues.
  *
  * \pre All commodities have been initialized and exist in dubpd.clist.  Each commodity_t element in dubpd.clist has 
  * 'uint32_t nfq_id' set and 'fifo_t *queue == NULL'
@@ -42,19 +40,19 @@ static void backlogger_init() {
 
     /** \todo determine if setpriorty() must be called to improve performance */
 
-    /* Opening netfilter_queue library handle */
+    /* opening netfilter_queue library handle */
     h = nfq_open();
     if (!h) {
         DUBP_LOG_ERR("error during nfq_open()");
     }
 
-    /* Unbind existing nf_queue handler for AF_INET (if any) */
+    /* unbind existing nf_queue handler for AF_INET (if any) */
     /** \todo extend to IPv6 handling */
     if (nfq_unbind_pf(h, AF_INET) < 0) {
         DUBP_LOG_ERR("Error during nfq_unbind_pf()");
     }
 
-    /* Bind nfnetlink_queue as nf_queue handler for AF_INET */
+    /* bind nfnetlink_queue as nf_queue handler for AF_INET */
     /** \todo extend to IPv6 handling */
     if (nfq_bind_pf(h, AF_INET) < 0) {
         DUBP_LOG_ERR("Error during nfq_bind_pf()");
@@ -62,112 +60,48 @@ static void backlogger_init() {
 
     /* iterate through list looking for matching element */
     for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
-        c = e->data;
+        c = (commodity_t *)e->data;
         c->queue = (fifo_t *)malloc(sizeof(fifo_t));
         fifo_init(c->queue);
 
-        /* Bind this socket to queue c->nfq_id */
+        /* bind this socket to queue c->nfq_id */
         c->queue->qh = nfq_create_queue(h, c->nfq_id, &fifo_add_packet, c->queue);
         if (!c->queue->qh) {
             DUBP_LOG_ERR("Error during nfq_create_queue()");
         }
 
-        /* Set packet copy mode to NFQNL_COPY_META */
+        /* set packet copy mode to NFQNL_COPY_META */
         if (nfq_set_mode(c->queue->qh, NFQNL_COPY_META, 0xffff) < 0) {
             DUBP_LOG_ERR("Can't set packet_copy mode");
         }
     }
-}
 
-
-/**
- * Update the backlogs on each commodity.  Update the backlog differential to each neighbor for each commodity.
- */
-void backlogger_update() {
-
-    elm_t *e, *f;
-    neighbor_t *n, *nopt;
-    commodity_t *c, *ctemp;
-    uint32_t diffopt, difftemp;
-    struct netaddr naddr;
-    union netaddr_socket nsaddr;
-    
-    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
-            c = (commodity_t *)e->data;
-            assert(c->queue);
-            c->cdata.backlog = fifo_length(c->queue);
+    /* flush iptables */
+    if (system("/sbin/iptables -t raw -F") < 0) {
+        DUBP_LOG_ERR("Unable to flush iptables");   
     }
 
-    ntable_mutex_lock(&dubpd.ntable);
+    int n;
 
-    /* convert my address into a netaddr for easy comparison */
-    nsaddr.std = *dubpd.saddr; 
-    netaddr_from_socket(&naddr, &nsaddr);
+    char cmd[256];
+    netaddr_str_t naddr_str;
 
-    /* for each of my commodities */
-    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
-        c = (commodity_t *)e->data;  
-
-        if (netaddr_cmp(&naddr, &(c->cdata.addr)) == 0) {
-            /* the commodity is destined to me! ignore it */
-            struct netaddr_str tempstr;
-            DUBP_LOG_DBG("Ignoring commodity destined to: %s", netaddr_to_string(&tempstr, &c->cdata.addr));
-            continue;
+    /* set iptables for each commodity */
+    for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+        c = (commodity_t *)e->data;
+   
+        n = snprintf(cmd, 256, "/sbin/iptables -t raw -A OUTPUT -d %s -p icmp -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
+        if (n < 0 || n == 256) {
+            DUBP_LOG_ERR("Unable to construct system string");
         }
+        system(cmd);
 
-        /* tie breaker */
-        int num = 0;
-        diffopt = 0;
-
-        /* try to find this commodity in neighbor's clist */
-        for(f = LIST_FIRST(&dubpd.ntable.nlist); f != NULL; f = LIST_NEXT(f, elms)) {
-            n = (neighbor_t *)f->data;
-
-            if ((ctemp = clist_find(&n->clist, c)) == NULL) {
-                DUBP_LOG_ERR("Neighbor doesn't know about commodity that I know about");
-            }
-
-            if (!n->bidir) {
-                /* I can hear the neighbor, but not sure if I can speak to the neighbor, skip him */
-                continue;
-            }
-
-            if (netaddr_cmp(&n->addr,&ctemp->cdata.addr)) {
-                /* The neighbor is the commodity's destination, send to him */
-                /** \todo Fully consider the built-in assumption -> unicast commodities (single-destination) */
-                nopt = n;
-                break;
-            }
-
-            difftemp = c->cdata.backlog - ctemp->cdata.backlog;
-            if (difftemp < diffopt) {
-                /* we found a neighbor with smaller backlog differential, or less than zero, ignore it */
-                continue;
-            } else if (difftemp == diffopt) {
-                /* we found a neighbor with equal backlog differential */
-                num++;
-            } else {
-                /* we found a neighbor with larger backlog differential */
-                num = 1;
-            }
-                
-            /* we use the following test to determine if we have a new nexthop */
-            if (((double)rand())/((double)RAND_MAX) >= ((double)(num-1))/((double)num)) {
-                /* this results in uniformly choosing amongst an unknown number of ties */
-                /* when num == 1, we always satisfy the test */
-                nopt = n;
-            }
+        n = snprintf(cmd, 256, "/sbin/iptables -t raw -A PREROUTING -d %s -p icmp -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
+        if (n < 0 || n == 256) {
+            DUBP_LOG_ERR("Unable to construct system string");
         }
-
-        /* by here, we have the best nexthop for commodity c, set it */
-        /* convert commodity destination and nexthop addresses from netaddr to socket */
-        union netaddr_socket nsaddr_dst, nsaddr_nh;
-        netaddr_to_socket(&nsaddr_dst, &(c->cdata.addr));
-        netaddr_to_socket(&nsaddr_nh, &(nopt->addr));
-        router_route_update(&(nsaddr_dst.std), &(nsaddr_nh.std), dubpd.ipver, dubpd.if_index);
+        system(cmd);
     }
-
-    ntable_mutex_unlock(&dubpd.ntable);
 }
 
 
@@ -179,7 +113,7 @@ void backlogger_update() {
 static void *backlogger_thread_main(void *arg __attribute__((unused)) ) {
 
     backlogger_init();
-    router_init();
+
     int fd, rv;
     /** \todo determine if this is the correct way to allocate buffer */
     char buf[4096] __attribute__ ((aligned));
@@ -189,6 +123,7 @@ static void *backlogger_thread_main(void *arg __attribute__((unused)) ) {
     while ((rv = recv(fd, buf, sizeof(buf),0)) && rv >=0) {
         /* main backlogger loop */
         nfq_handle_packet(h, buf, rv);
+        DUBP_LOG_DBG("Handling Packet!");
     }
     /** \todo clean up if while loop breaks? */
 

@@ -38,6 +38,7 @@
 #include "ntable.h"
 #include "util.h"
 #include "commodity.h"
+#include "router.h"
 
 
 /* pre-initialization of runtime variables */
@@ -475,6 +476,11 @@ int main(int argc, char **argv) {
     hello_reader_thread_create();
     hello_writer_thread_create();
 
+    /* initialize the interface with the routing table */
+    if (router_init(dubpd.if_index, dubpd.ipver) < 0) {
+        DUBP_LOG_ERR("Unable to initialize router");
+    }
+
     /* just hang out here for a while */
     /** \todo This 'thread' will periodically poll commodity data, 
      * update backlogs, set routes, release data packets to kernel 
@@ -485,7 +491,8 @@ int main(int argc, char **argv) {
          * i) better if we only update periodically here, or
          * ii) better if we update each time we need the backlog 
          */
-        backlogger_update();
+        router_update();
+        //router_release();
 
         sleep(1);
     }

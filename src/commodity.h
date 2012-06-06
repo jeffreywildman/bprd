@@ -21,5 +21,6 @@ typedef struct commodity {
 
 extern void clist_free(list_t *l);
 extern commodity_t *clist_find(list_t *l, commodity_t *c);
+extern void clist_print(list_t *l);
 
 #endif /* __COMMODITY_H */

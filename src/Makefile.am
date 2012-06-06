@@ -19,6 +19,7 @@ dubpd_SOURCES = \
 				neighbor.c \
 				ntable.c \
 				pidfile.c \
+				procfile.c \
 				router.c \
 				util.c
 
