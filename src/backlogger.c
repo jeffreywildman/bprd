@@ -85,10 +85,21 @@ static void backlogger_init() {
 
     char cmd[256];
     netaddr_str_t naddr_str;
+    struct netaddr naddr;
+    union netaddr_socket nsaddr;
+   
+    /* convert my address into a netaddr for easy comparison */
+    nsaddr.std = *dubpd.saddr; 
+    netaddr_from_socket(&naddr, &nsaddr);
 
-    /* set iptables for each commodity */
+    /* set iptables for each commodity that is not destined to me */
     for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         c = (commodity_t *)e->data;
+
+        /* skip commodity destined to me! */
+        if (netaddr_cmp(&naddr, &(c->cdata.addr)) == 0) {
+            continue;
+        }
    
         n = snprintf(cmd, 256, "/sbin/iptables -t raw -A OUTPUT -d %s -p icmp -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
         if (n < 0 || n == 256) {
