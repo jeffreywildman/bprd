@@ -297,8 +297,8 @@ void router_release(unsigned int count) {
     }
 
     if (c) {
-        /* only send up to min(count,diffopt/2) packets! otherwise gradient will reverse */
-        count = diffopt/2 > count ? count : diffopt/2;
+        /* only send up to min(count,(diffopt+1)/2) packets! otherwise gradient will grow in the reverse direction */
+        count = (diffopt+1)/2 > count ? count : (diffopt+1)/2;
         /* release up to count packets of this commodity */
         while (count--) {fifo_send_packet(c->queue);}
     }
