@@ -123,7 +123,7 @@ static void *backlogger_thread_main(void *arg __attribute__((unused)) ) {
     while ((rv = recv(fd, buf, sizeof(buf),0)) && rv >=0) {
         /* main backlogger loop */
         nfq_handle_packet(h, buf, rv);
-        DUBP_LOG_DBG("Handling Packet!");
+        //DUBP_LOG_DBG("Handling Packet!");
     }
     /** \todo clean up if while loop breaks? */
 

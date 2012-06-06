@@ -222,7 +222,7 @@ void router_update() {
                 continue;
             }
 
-            if (netaddr_cmp(&n->addr,&ctemp->cdata.addr)) {
+            if (netaddr_cmp(&n->addr,&ctemp->cdata.addr) == 0) {
                 /* The neighbor is the commodity's destination, send to him */
                 /** \todo Fully consider the built-in assumption -> unicast commodities (single-destination) */
                 nopt = n;
