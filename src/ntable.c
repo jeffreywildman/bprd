@@ -120,6 +120,7 @@ void ntable_print(neighbortable_t *ntable) {
     t = time(NULL);
     printf("Neighbor Table, Current Time: %s\n", asctime(localtime(&t)));
     /* iterate through list looking for matching element */
+    LIST_EMPTY(&ntable->nlist) ? printf("\tNONE\n") : 0;
     for (e = LIST_FIRST(&ntable->nlist); e != NULL; e = LIST_NEXT(e, elms)) {
         assert(e->data);
         n = (neighbor_t *)e->data;

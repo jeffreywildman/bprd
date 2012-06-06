@@ -10,6 +10,7 @@
 #include "dubp.h"
 
 #include <arpa/inet.h>
+#include <errno.h>
 #include <getopt.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -111,7 +112,7 @@ static void socket_init() {
 
     /* bind address to socket */
     if (bind(dubpd.sockfd, (const struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
-        DUBP_LOG_ERR("Unable to bind socket");
+        DUBP_LOG_ERR("Unable to bind socket: %s", strerror(errno));
     }
 
     /* construct multicast request data structure */ 
@@ -128,6 +129,12 @@ static void socket_init() {
     /* now we should be able to receive multicast messages on this interface as well */
     if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
         DUBP_LOG_ERR("Unable to join multicast group");
+    }
+
+    /* do not loopback multicast messages */
+    char loop = 0;
+    if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop)) < 0) {
+        DUBP_LOG_ERR("Unable to disable multicast loopback");
     }
 
     /* set default interface for outgoing multicast messages */
