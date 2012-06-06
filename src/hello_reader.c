@@ -75,12 +75,13 @@ static enum pbb_result hello_cons_msg_tlv(struct pbb_reader_tlvblock_consumer *c
 
     /* read in commodities for the neighbor */
     if (tlv->type == DUBP_MSGTLV_TYPE_COM && tlv->length == sizeof(commodity_s_t)) {
-        /* TODO: hton byteorder worries here?! */
+        /** \todo hton byteorder worries here?! */
         comtemp.cdata = *(commodity_s_t *)tlv->single_value;
         /* try to find commodity in neighbor commodity list or create new one */
         com = clist_find(&n->clist, &comtemp);
         if (com == NULL) {
             com = (commodity_t *)malloc(sizeof(commodity_t));
+            memset(com, 0, sizeof(commodity_t));
             com->cdata.addr = comtemp.cdata.addr;
             list_insert(&n->clist, com);
         }

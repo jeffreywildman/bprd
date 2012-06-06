@@ -15,6 +15,7 @@ typedef struct commodity_short {
 
 typedef struct commodity {
     commodity_s_t cdata;
+    uint32_t backdiff;
     uint16_t nfq_id;
     fifo_t *queue;
 } commodity_t;

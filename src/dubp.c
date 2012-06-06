@@ -492,7 +492,7 @@ int main(int argc, char **argv) {
          * ii) better if we update each time we need the backlog 
          */
         router_update();
-        //router_release();
+        router_release(1);
 
         sleep(1);
     }

@@ -131,7 +131,7 @@ void ntable_print(neighbortable_t *ntable) {
         for (f = LIST_FIRST(&n->clist); f != NULL; f = LIST_NEXT(f, elms)) {
             assert(f->data);
             c = (commodity_t *)f->data;
-            printf("\t\tDest: %s \t Backlog: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog);
+            printf("\t\tDest: %s \t Backlog: %u \t Differential: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog, c->backdiff);
         }
         printf("\n");
     }

@@ -28,6 +28,8 @@
  * Data structure containing full definition of a commodity.
  * \var commodity::cdata
  * Essential commodity fields encapsulated in a data structure.
+ * \var commodity::backdiff
+ * Backlog differential of commodity.
  * \var commodity::nfq_id
  * NFQUEUE ID associated with this commodity (\see backlogger)
  * \var commodity::queue
