@@ -23,13 +23,13 @@ void hello_recv(uint8_t *buf, size_t buflen) {
 
     /* lock neighbor table while processing message */
     ntable_mutex_lock(&dubpd.ntable);
-    printf("\n\nBefore Message Reception:\n");
-    ntable_print(&dubpd.ntable);
+    //printf("\n\nBefore Message Reception:\n");
+    //ntable_print(&dubpd.ntable);
 
     pbb_reader_handle_packet(&pbb_r, buf, buflen);
     
-    printf("\n\nAfter Message Reception:\n");
-    ntable_print(&dubpd.ntable);
+    //printf("\n\nAfter Message Reception:\n");
+    //ntable_print(&dubpd.ntable);
     ntable_mutex_unlock(&dubpd.ntable);
 }
 
@@ -165,7 +165,7 @@ static void *hello_reader_thread(void *arg __attribute__((unused)) ) {
         if ((buflen = recvfrom(dubpd.sockfd, (void *)&buf, sizeof(buf), 0, &saddr, &saddr_len)) < 0) {
             DUBP_LOG_ERR("Unable to receive hello!");
         } else {
-            DUBP_LOG_DBG("Received hello message");
+            //DUBP_LOG_DBG("Received hello message");
             /* TODO: confirm that packet came from correct MCAST protocol, addr, and port */
             hello_recv(buf, buflen);
         }

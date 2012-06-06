@@ -28,7 +28,7 @@ static void hello_send(struct pbb_writer *w, struct pbb_writer_interface *iface,
     if ((n = sendto(dubpd.sockfd, buffer, buflen, 0, (const struct sockaddr *)dubpd.maddr, dubpd.maddrlen)) < 0) {
         DUBP_LOG_ERR("Unable to send hello!");
     } else {
-        DUBP_LOG_DBG("Sent hello message");
+        //DUBP_LOG_DBG("Sent hello message");
     }
 }
 

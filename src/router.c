@@ -165,9 +165,8 @@ void router_update() {
 
     /* update my commodity levels */
     for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
-            c = (commodity_t *)e->data;
-            assert(c->queue);
-            c->cdata.backlog = fifo_length(c->queue);
+        c = (commodity_t *)e->data;
+        c->cdata.backlog = fifo_length(c->queue);
     }
 
     ntable_mutex_lock(&dubpd.ntable);
@@ -227,6 +226,7 @@ void router_update() {
                 /* The neighbor is the commodity's destination, send to him */
                 /** \todo Fully consider the built-in assumption -> unicast commodities (single-destination) */
                 nopt = n;
+                diffopt = ctemp->backdiff;
                 break;
             }
 
@@ -239,20 +239,20 @@ void router_update() {
             } else {
                 /* we found a neighbor with larger backlog differential */
                 num = 1;
-                diffopt = ctemp->backdiff;
             }
-                
+
             /* we use the following test to determine if we have a new nexthop */
             if (((double)rand())/((double)RAND_MAX) >= ((double)(num-1))/((double)num)) {
                 /* this results in uniformly choosing amongst an unknown number of ties */
                 /* when num == 1, we always satisfy the test */
                 nopt = n;
+                diffopt = ctemp->backdiff;
             }
         }
 
         union netaddr_socket nsaddr_dst, nsaddr_nh;
         netaddr_to_socket(&nsaddr_dst, &(c->cdata.addr));
- 
+
         /* if we have a valid neighbor... */
         if (nopt) {
             /* by here, we have the best nexthop for commodity c, set it */
@@ -289,7 +289,7 @@ void router_release(unsigned int count) {
     /* search for largest max differential */
     for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         ctemp = (commodity_t *)e->data;
-        
+
         if (ctemp->backdiff > diffopt) {
             c = ctemp;
             diffopt = ctemp->backdiff;

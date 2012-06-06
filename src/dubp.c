@@ -492,6 +492,24 @@ int main(int argc, char **argv) {
          * ii) better if we update each time we need the backlog 
          */
         router_update();
+
+        ntable_mutex_lock(&dubpd.ntable);
+        time_t t = time(NULL);
+        printf("\n\n\n---------------------------------------------------\n");
+        printf("My Commodities, Current Time: %s\n", asctime(localtime(&t)));
+        elm_t *e;
+        commodity_t *c;
+        netaddr_str_t naddr_str;
+        LIST_EMPTY(&dubpd.clist) ? printf("\tNONE\n") : 0;
+        for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+            c = (commodity_t *)e->data;
+            printf("\tDest: %s \t Backlog: %u \t Max Differential: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog, c->backdiff);
+        }
+        printf("\n");
+        ntable_print(&dubpd.ntable);
+        printf("---------------------------------------------------\n");
+        ntable_mutex_unlock(&dubpd.ntable);
+        
         router_release(1);
 
         sleep(1);
