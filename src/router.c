@@ -167,6 +167,9 @@ void router_update() {
     for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         c = (commodity_t *)e->data;
         c->cdata.backlog = fifo_length(c->queue);
+
+        /* print backlog level to syslog */
+        DUBP_LOG_INFO("Commodity: %u, Backlog: %u", c->nfq_id, c->cdata.backlog);
     }
 
     ntable_mutex_lock(&dubpd.ntable);

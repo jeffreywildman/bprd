@@ -37,7 +37,7 @@ static char *logger_prioritynames[] = {
     "ERROR",
     "WRNNG",
     "NOTCE",
-    "INFO ",
+    "INFO",
     "DEBUG",
     NULL
 };
@@ -80,12 +80,16 @@ void logger_cleanup() {
 void logger_log(int priority, const char *file, const int line, 
                 const char *fmt, ...) {
 
-    int n, m = 0;
+    int n = 0, m = 0;
 
     pthread_mutex_lock(&logger_mutex);
 
     /* write first part of message */
-    n = snprintf(logger_msgstr, LOGGER_MSGSTRLEN, "%s %s:%d ", logger_prioritynames[LOG_PRI(priority)], file, line);
+    if (file) {
+        n = snprintf(logger_msgstr, LOGGER_MSGSTRLEN, "%s %s:%d ", logger_prioritynames[LOG_PRI(priority)], file, line);
+    } else {
+        n = snprintf(logger_msgstr, LOGGER_MSGSTRLEN, "%s ", logger_prioritynames[LOG_PRI(priority)]);
+    }
 
     /* if room, write second part of message */
     if (n < LOGGER_MSGSTRLEN) {
