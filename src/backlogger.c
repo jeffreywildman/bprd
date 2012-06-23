@@ -22,6 +22,39 @@ static struct nfq_handle *h;    /**< Handle to netfilter queue library. */
 
 
 /**
+ * Release packets back to kernel.
+ *
+ * Find the commodity with the largest backlog differential and send \a count packets from it.
+ *
+ * \param count Number of packets to release.
+ */ 
+void backlogger_packet_release(unsigned int count) {
+
+    elm_t *e;
+    commodity_t *c = NULL;
+    commodity_t *ctemp;
+    uint32_t diffopt = 0;
+
+    /* search for largest max differential */
+    for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+        ctemp = (commodity_t *)e->data;
+
+        if (ctemp->backdiff > diffopt) {
+            c = ctemp;
+            diffopt = ctemp->backdiff;
+        }
+    }
+
+    if (c) {
+        /* only send up to min(count,(diffopt+1)/2) packets! otherwise gradient will grow in the reverse direction */
+        count = (diffopt+1)/2 > count ? count : (diffopt+1)/2;
+        /* release up to count packets of this commodity */
+        while (count--) {fifo_send_packet(c->queue);}
+    }
+}
+
+
+/**
  * Initialize the backlogger thread.
  *
  * Open connection to libnetfilter, link each commodity with a netfilter queue, and add iptables rules to filter 

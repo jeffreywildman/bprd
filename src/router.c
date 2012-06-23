@@ -13,6 +13,7 @@
                          /* http://groups.google.com/group/linux.kernel/browse_thread/thread/6de65a3145007ae5?pli=1 */
 
 #include <linux/netlink.h>              /* for NETLINK_ROUTE */
+#include <unistd.h>      /* for usleep() */
 
 #include <netlink/addr.h>               /* for nl_addr, nl_addr_build(), nl_addr_put() */
 #include <netlink/errno.h>              /* for nl_geterror() */
@@ -45,7 +46,7 @@ static char router_procfile[PATH_MAX];  /**< Path to file in proc/sys controllin
  * \retval 0 On success.
  * \retval -1 On error.
  */
-int router_init(unsigned int if_index, unsigned int family) {
+static int router_init(unsigned int if_index, unsigned int family) {
 
 //    struct nl_cache *cache;
 //    struct rtnl_link *link, *new;
@@ -124,7 +125,7 @@ int router_init(unsigned int if_index, unsigned int family) {
  *
  * \todo Handle IPv6 ip forwarding reset.
  */
-void router_cleanup() {
+static void router_cleanup() {
 
 //    struct nl_cache *cache;
 //    struct rtnl_link *link, *new;
@@ -147,10 +148,79 @@ void router_cleanup() {
 
 
 /**
+ * Update a route in the kernel's routing table.  
+ *
+ * \param dst Address of the destination.
+ * \param nh Address of the nexthop.  If NULL, remove the route to \a dst.
+ * \param family Address family.
+ * \param ifindex Index of the outgoing interface.
+ */
+static void router_route_update(struct sockaddr *dst, struct sockaddr *nh, unsigned int family, unsigned int ifindex) {
+
+    int err;
+    struct nl_addr *nl_dst_addr, *nl_nh_addr;
+    struct rtnl_route *route;
+    struct rtnl_nexthop *nexthop;
+
+    /* input checking */
+    if (dst == NULL) {
+        DUBP_LOG_ERR("Destination address is empty");
+    }
+
+    /* convert socket addresses to netlink abstract addresses */
+    /** \note some ugly looking typecasting to first extract address from sockaddr and then to pass as (void *) */
+    if (family == AF_INET6) {
+        nl_dst_addr = nl_addr_build(AF_INET6, (void *)&((struct sockaddr_in6 *)dst)->sin6_addr, sizeof(struct in6_addr));
+        (nh != NULL) ? nl_nh_addr = nl_addr_build(AF_INET6, (void *)&((struct sockaddr_in6 *)nh)->sin6_addr, sizeof(struct in6_addr)) : NULL;
+    } else {
+        nl_dst_addr = nl_addr_build(AF_INET, (void *)&((struct sockaddr_in *)dst)->sin_addr, sizeof(struct in_addr));
+        (nh != NULL) ? nl_nh_addr = nl_addr_build(AF_INET, (void *)&((struct sockaddr_in *)nh)->sin_addr, sizeof(struct in_addr)) : NULL;
+    }
+
+    if (nl_dst_addr == NULL || (nh != NULL && nl_nh_addr == NULL)) {
+        DUBP_LOG_ERR("Unable to convert socket addresses to netlink abstract addresses");
+    }
+
+    /* create route and add preliminary fields */
+    if ((route = rtnl_route_alloc()) == NULL ) {
+        DUBP_LOG_ERR("Unable to allocate netlink route");
+    }
+    rtnl_route_set_table(route,rtnl_route_str2table("main"));
+    rtnl_route_set_scope(route,rtnl_str2scope("universe"));
+    /** \todo Change from static to dubp-specific protocol number? */
+    rtnl_route_set_protocol(route,rtnl_route_str2proto("static"));
+    rtnl_route_set_family(route,family);
+    rtnl_route_set_dst(route,nl_dst_addr);  
+    rtnl_route_set_type(route,nl_str2rtntype("unicast"));
+
+    if (nh != NULL) {
+        /* add nexthop information and add to table */
+        nexthop = rtnl_route_nh_alloc();
+        rtnl_route_nh_set_ifindex(nexthop,ifindex);
+        rtnl_route_nh_set_gateway(nexthop,nl_nh_addr);
+        rtnl_route_add_nexthop(route,nexthop);
+        if ((err = rtnl_route_add(router_nlsk,route,NLM_F_REPLACE)) < 0) {
+            DUBP_LOG_ERR("Error adding route: %s\n", nl_geterror(err));
+        }
+        rtnl_route_nh_free(nexthop);
+        nl_addr_put(nl_nh_addr); 
+    } else {
+        /* remove from table */
+        /** \todo figure out what happens if route doesn't already exist in table */
+        if ((err = rtnl_route_delete(router_nlsk,route,0)) < 0) {
+            DUBP_LOG_ERR("Error deleting route: %s\n", nl_geterror(err));
+        }
+    }
+
+    nl_addr_put(nl_dst_addr);  
+}
+
+
+/**
  * Update the backlogs on each commodity.  Update the backlog differential to each neighbor for each commodity.  Update
  * the max backlog differential for each commodity.
  */
-void router_update() {
+static void router_update() {
 
     elm_t *e, *f;
     neighbor_t *n, *nopt;
@@ -276,104 +346,68 @@ void router_update() {
 
 
 /**
- * Release packets back to kernel.
+ * Loop endlessly and update the routing table.
  *
- * Find the commodity with the largest backlog differential and send \a count packets from it.
- *
- * \param count Number of packets to release.
- */ 
-void router_release(unsigned int count) {
+ * \param arg Unused.
+ */
+static void *router_thread_main(void *arg __attribute__((unused)) ) {
 
-    elm_t *e;
-    commodity_t *c = NULL;
-    commodity_t *ctemp;
-    uint32_t diffopt = 0;
+     /* initialize the interface with the routing table */
+    if (router_init(dubpd.if_index, dubpd.ipver) < 0) {
+        DUBP_LOG_ERR("Unable to initialize router");
+    }
 
-    /* search for largest max differential */
-    for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
-        ctemp = (commodity_t *)e->data;
+    /* just hang out here for a while */
+    /** \todo This 'thread' will periodically poll commodity data, 
+     * update backlogs, set routes in kernel 
+     */
+    while(1) {
 
-        if (ctemp->backdiff > diffopt) {
-            c = ctemp;
-            diffopt = ctemp->backdiff;
+        /** \todo Determine which backlog update scheme is best:
+         * i) better if we only update periodically here, or
+         * ii) better if we update each time we need the backlog 
+         */
+        router_update();
+
+        ntable_mutex_lock(&dubpd.ntable);
+        time_t t = time(NULL);
+        printf("\n\n\n---------------------------------------------------\n");
+        printf("My Commodities, Current Time: %s\n", asctime(localtime(&t)));
+        elm_t *e;
+        commodity_t *c;
+        netaddr_str_t naddr_str;
+        LIST_EMPTY(&dubpd.clist) ? printf("\tNONE\n") : 0;
+        for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+            c = (commodity_t *)e->data;
+            printf("\tDest: %s \t Backlog: %u \t Max Differential: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog, c->backdiff);
         }
+        printf("\n");
+        ntable_print(&dubpd.ntable);
+        printf("---------------------------------------------------\n");
+        ntable_mutex_unlock(&dubpd.ntable);
+        
+        usleep(dubpd.update_rate*1000);
     }
 
-    if (c) {
-        /* only send up to min(count,(diffopt+1)/2) packets! otherwise gradient will grow in the reverse direction */
-        count = (diffopt+1)/2 > count ? count : (diffopt+1)/2;
-        /* release up to count packets of this commodity */
-        while (count--) {fifo_send_packet(c->queue);}
-    }
+    /** \todo clean up if while loop breaks? */
+
+    return NULL;
 }
 
 
 /**
- * Update a route in the kernel's routing table.  
- *
- * \param dst Address of the destination.
- * \param nh Address of the nexthop.  If NULL, remove the route to \a dst.
- * \param family Address family.
- * \param ifindex Index of the outgoing interface.
+ * Create a new thread to handle continuous router duties.
  */
-void router_route_update(struct sockaddr *dst, struct sockaddr *nh, unsigned int family, unsigned int ifindex) {
+void router_thread_create() {
 
-    int err;
-    struct nl_addr *nl_dst_addr, *nl_nh_addr;
-    struct rtnl_route *route;
-    struct rtnl_nexthop *nexthop;
-
-    /* input checking */
-    if (dst == NULL) {
-        DUBP_LOG_ERR("Destination address is empty");
+    /** \todo Check out pthread_attr options, currently set to NULL */
+    if (pthread_create(&(dubpd.router_tid), NULL, router_thread_main, NULL) < 0) {
+        DUBP_LOG_ERR("Unable to create router thread");
     }
 
-    /* convert socket addresses to netlink abstract addresses */
-    /** \note some ugly looking typecasting to first extract address from sockaddr and then to pass as (void *) */
-    if (family == AF_INET6) {
-        nl_dst_addr = nl_addr_build(AF_INET6, (void *)&((struct sockaddr_in6 *)dst)->sin6_addr, sizeof(struct in6_addr));
-        (nh != NULL) ? nl_nh_addr = nl_addr_build(AF_INET6, (void *)&((struct sockaddr_in6 *)nh)->sin6_addr, sizeof(struct in6_addr)) : NULL;
-    } else {
-        nl_dst_addr = nl_addr_build(AF_INET, (void *)&((struct sockaddr_in *)dst)->sin_addr, sizeof(struct in_addr));
-        (nh != NULL) ? nl_nh_addr = nl_addr_build(AF_INET, (void *)&((struct sockaddr_in *)nh)->sin_addr, sizeof(struct in_addr)) : NULL;
-    }
+    /** \todo wait here until process stops? pthread_join(htdata.tid)? */
+    /** \todo handle the case where hello writer thread stops  - encapsulate in while(1) - restart hello thread? */
 
-    if (nl_dst_addr == NULL || (nh != NULL && nl_nh_addr == NULL)) {
-        DUBP_LOG_ERR("Unable to convert socket addresses to netlink abstract addresses");
-    }
-
-    /* create route and add preliminary fields */
-    if ((route = rtnl_route_alloc()) == NULL ) {
-        DUBP_LOG_ERR("Unable to allocate netlink route");
-    }
-    rtnl_route_set_table(route,rtnl_route_str2table("main"));
-    rtnl_route_set_scope(route,rtnl_str2scope("universe"));
-    /** \todo Change from static to dubp-specific protocol number? */
-    rtnl_route_set_protocol(route,rtnl_route_str2proto("static"));
-    rtnl_route_set_family(route,family);
-    rtnl_route_set_dst(route,nl_dst_addr);  
-    rtnl_route_set_type(route,nl_str2rtntype("unicast"));
-
-    if (nh != NULL) {
-        /* add nexthop information and add to table */
-        nexthop = rtnl_route_nh_alloc();
-        rtnl_route_nh_set_ifindex(nexthop,ifindex);
-        rtnl_route_nh_set_gateway(nexthop,nl_nh_addr);
-        rtnl_route_add_nexthop(route,nexthop);
-        if ((err = rtnl_route_add(router_nlsk,route,NLM_F_REPLACE)) < 0) {
-            DUBP_LOG_ERR("Error adding route: %s\n", nl_geterror(err));
-        }
-        rtnl_route_nh_free(nexthop);
-        nl_addr_put(nl_nh_addr); 
-    } else {
-        /* remove from table */
-        /** \todo figure out what happens if route doesn't already exist in table */
-        if ((err = rtnl_route_delete(router_nlsk,route,0)) < 0) {
-            DUBP_LOG_ERR("Error deleting route: %s\n", nl_geterror(err));
-        }
-    }
-
-    nl_addr_put(nl_dst_addr);  
 }
 
 /** \} */

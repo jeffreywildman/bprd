@@ -18,6 +18,9 @@
 #define DUBP_DEFAULT_HELLO_INTERVAL 1   /* seconds */
 #define DUBP_DEFAULT_NEIGHBOR_TIMEOUT 5 /* # of missed hello messages */
 
+#define DUBP_DEFAULT_RELEASE_RATE 1000  /* mseconds */
+#define DUBP_DEFAULT_UPDATE_RATE 1000   /* mseconds */
+
 /**< \todo Move this into a config.h. */
 #define DUBP_DEFAULT_PIDLEN 25
 #define DUBP_DEFAULT_PIDSTR "/var/run/dubpd.pid"
@@ -64,11 +67,15 @@ typedef struct dubp {
     /* timers */
     uint8_t hello_interval;     /**< Time period between hello messages (seconds). */
     uint8_t neighbor_timeout;   /**< Time period (seconds). */
+
+    uint32_t release_rate;      /**< Time period between releasing packets (mseconds). */
+    uint32_t update_rate;       /**< Time period between updating next hop routes (mseconds). */
    
     /* commodity table */
     list_t clist;               /**< Commodity list. */
     /** \todo Determine if a mutex is needed for the commodity list. */
     pthread_t backlogger_tid;   /**< ID of the backlogger thread. */
+    pthread_t router_tid;       /**< ID of the router thread. */
 
     /* neighbor table */
     neighbortable_t ntable;     /**< Neighbor table. */

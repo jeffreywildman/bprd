@@ -21,7 +21,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <unistd.h>             /* for fork() */
+#include <unistd.h>             /* for fork(), usleep() */
 
 #include <netlink/addr.h>
 #include <netlink/socket.h>
@@ -49,14 +49,20 @@ dubp_t dubpd = {
     .ipver = AF_INET,
     .confile = NULL,
     .pidfile = NULL,
-    .sockfd = -1,
+    .if_index = 0,
     .if_name = NULL,
+    .sockfd = -1,
     .saddr_nl = NULL,
     .saddr = NULL,
     .saddrlen = 0,
     .maddr_nl = NULL,
     .maddr = NULL,
-    .maddrlen = 0
+    .maddrlen = 0, 
+    .hello_seqno = 0,
+    .hello_interval = DUBP_DEFAULT_HELLO_INTERVAL,
+    .neighbor_timeout = DUBP_DEFAULT_HELLO_INTERVAL * DUBP_DEFAULT_NEIGHBOR_TIMEOUT,
+    .release_rate = DUBP_DEFAULT_RELEASE_RATE,
+    .update_rate = DUBP_DEFAULT_UPDATE_RATE
 };
 
 /* options acted upon immediately before others */
@@ -74,6 +80,8 @@ static struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
     {"interface", required_argument, NULL, 'i'},
     {"pidfile", required_argument, NULL, 'p'},
+    {"release_rate", required_argument, NULL, 's'},
+    {"update_rate", required_argument, NULL, 't'},
     {0,0,0,0}
 };
 
@@ -89,6 +97,8 @@ static void usage() {
     printf("  -h, --help            \tprint this help message\n");
     printf("  -i, --interface=IFACE \trun the protocol over interface IFACE (default is eth0)\n");
     printf("  -p, --pidfile=FILE    \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
+    printf("  -s, --release_rate=MS \tset rate to MS (mseconds)\n");
+    printf("  -t, --update_rate=MS  \tset rate to MS (mseconds)\n");
 }
 
 
@@ -335,7 +345,7 @@ void dubp_init(int argc, char **argv) {
     opterr = 1;
 
     /* iterate through arguments again, optind is now first argument not recognized by original pass */
-    while ((c = getopt_long_only(argc, argv, "46r:c:dhi:p:", long_options, &lo_index)) != -1) {
+    while ((c = getopt_long_only(argc, argv, "46r:c:dhi:p:s:t:", long_options, &lo_index)) != -1) {
         switch (c) {
         case 0:
             if (long_options[lo_index].flag != 0) {
@@ -371,6 +381,14 @@ void dubp_init(int argc, char **argv) {
         case 'p':
             printf("pidfile option: %s\n", optarg);
             dubpd.pidfile = optarg;
+            break;
+        case 's':
+            printf("release_rate option: %s\n", optarg);
+            dubpd.release_rate = (uint32_t)atoi(optarg);
+            break;
+        case 't':
+            printf("update_rate option: %s\n", optarg);
+            dubpd.update_rate = (uint32_t)atoi(optarg);
             break;
         case '?':
             DUBP_LOG_ERR("Unable to parse input arguments");
@@ -439,10 +457,9 @@ void dubp_init(int argc, char **argv) {
     }
 
     /* timers */
-    dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
-    dubpd.neighbor_timeout = dubpd.hello_interval * DUBP_DEFAULT_NEIGHBOR_TIMEOUT;
-
-    dubpd.hello_seqno = 0;
+    /** \todo allow hello interval and neighbor timeout to be configurable - different from defaults */
+    //dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
+    //dubpd.neighbor_timeout = dubpd.hello_interval * DUBP_DEFAULT_NEIGHBOR_TIMEOUT;
 
     /* verify existing commodity list up to this point is of the correct type */
     elm_t *e;
@@ -483,43 +500,17 @@ int main(int argc, char **argv) {
     hello_reader_thread_create();
     hello_writer_thread_create();
 
-    /* initialize the interface with the routing table */
-    if (router_init(dubpd.if_index, dubpd.ipver) < 0) {
-        DUBP_LOG_ERR("Unable to initialize router");
-    }
+    /* start the router thread */
+    router_thread_create();
 
     /* just hang out here for a while */
-    /** \todo This 'thread' will periodically poll commodity data, 
-     * update backlogs, set routes, release data packets to kernel 
-     */
+    /* this 'thread' periodically releases data packets to kernel */
     while(1) {
 
-        /** \todo Determine which backlog update scheme is best:
-         * i) better if we only update periodically here, or
-         * ii) better if we update each time we need the backlog 
-         */
-        router_update();
-
-        ntable_mutex_lock(&dubpd.ntable);
-        time_t t = time(NULL);
-        printf("\n\n\n---------------------------------------------------\n");
-        printf("My Commodities, Current Time: %s\n", asctime(localtime(&t)));
-        elm_t *e;
-        commodity_t *c;
-        netaddr_str_t naddr_str;
-        LIST_EMPTY(&dubpd.clist) ? printf("\tNONE\n") : 0;
-        for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
-            c = (commodity_t *)e->data;
-            printf("\tDest: %s \t Backlog: %u \t Max Differential: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog, c->backdiff);
-        }
-        printf("\n");
-        ntable_print(&dubpd.ntable);
-        printf("---------------------------------------------------\n");
-        ntable_mutex_unlock(&dubpd.ntable);
-        
-        router_release(1);
-
-        sleep(1);
+        /* release a packet */
+        backlogger_packet_release(1);
+        /* wait prescribed time */
+        usleep(dubpd.release_rate*1000);
     }
 
     /* close socket and get out of here */
