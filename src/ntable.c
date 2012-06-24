@@ -7,8 +7,7 @@
 
 #include <assert.h>         /* for assert() */
 #include <pthread.h>        /* for pthread_mutex_*() */ 
-#include <time.h>           /* for time() */
-#include <sys/types.h>      /* for time_t */
+#include <sys/time.h>       /* for timeval, gettimeofday() */
 
 #include "dubp.h"
 #include "logger.h"
@@ -32,10 +31,19 @@
  */
 static int cond_n_expired(void *data) {
 
+    struct timeval now;
+    uint32_t elapsed;
+
     assert(data);
 
     neighbor_t *n = (neighbor_t *)data;
-    return (time(NULL) - n->update_time > dubpd.neighbor_timeout);
+
+    /** \todo error handling */
+    gettimeofday(&now, NULL);
+
+    elapsed = (now.tv_sec - n->update_time.tv_sec) * 1000000;
+    elapsed += (now.tv_usec - n->update_time.tv_usec);
+    return (elapsed > dubpd.neighbor_timeout);
 }
 
 
@@ -126,7 +134,7 @@ void ntable_print(neighbortable_t *ntable) {
         n = (neighbor_t *)e->data;
         printf("\tAddress: %s\n", netaddr_to_string(&naddr_str, &n->addr));
         printf("\tBidir: %u\n", n->bidir);
-        printf("\tUpdate Time: %s", asctime(localtime(&n->update_time)));
+        printf("\tUpdate Time: %s", asctime(localtime(&n->update_time.tv_sec)));
         printf("\tCommodities:");
         LIST_EMPTY(&n->clist) ? printf(" NONE\n") : printf("\n");
         for (f = LIST_FIRST(&n->clist); f != NULL; f = LIST_NEXT(f, elms)) {

@@ -15,11 +15,12 @@
 #define IPPORT_MANET 269   /* if running over SOCK_DGRAM */
 
 #define DUBP_DEFAULT_INTERFACE "eth0"
-#define DUBP_DEFAULT_HELLO_INTERVAL 1   /* seconds */
-#define DUBP_DEFAULT_NEIGHBOR_TIMEOUT 5 /* # of missed hello messages */
 
-#define DUBP_DEFAULT_RELEASE_RATE 1000  /* mseconds */
-#define DUBP_DEFAULT_UPDATE_RATE 1000   /* mseconds */
+#define USEC_PER_MSEC 1000                  /* useconds/msecond */
+#define DUBP_DEFAULT_HELLO_INTERVAL 100     /* mseconds */
+#define DUBP_DEFAULT_RELEASE_INTERVAL 100   /* mseconds */
+#define DUBP_DEFAULT_UPDATE_INTERVAL 100    /* mseconds */
+#define DUBP_DEFAULT_NEIGHBOR_TIMEOUT 5     /* # of missed hello messages */
 
 /**< \todo Move this into a config.h. */
 #define DUBP_DEFAULT_PIDLEN 25
@@ -65,11 +66,10 @@ typedef struct dubp {
     uint16_t hello_seqno;       /**< Last sequence used in a transmitted hello message. */
 
     /* timers */
-    uint8_t hello_interval;     /**< Time period between hello messages (seconds). */
-    uint8_t neighbor_timeout;   /**< Time period (seconds). */
-
-    uint32_t release_rate;      /**< Time period between releasing packets (mseconds). */
-    uint32_t update_rate;       /**< Time period between updating next hop routes (mseconds). */
+    uint32_t hello_interval;    /**< Time period between hello messages (useconds). */
+    uint32_t release_interval;  /**< Time period between releasing packets (useconds). */
+    uint32_t update_interval;   /**< Time period between updating next hop routes (useconds). */
+    uint32_t neighbor_timeout;   /**< Time period (useconds). */
    
     /* commodity table */
     list_t clist;               /**< Commodity list. */

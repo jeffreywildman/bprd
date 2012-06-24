@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <sys/time.h>       /* for gettimeofday() */
 
 #include <packetbb/pbb_reader.h>
 #include <common/netaddr.h>
@@ -59,7 +60,8 @@ static enum pbb_result hello_cons_msg_start (struct pbb_reader_tlvblock_consumer
         list_init(&n->clist);
         list_insert(&dubpd.ntable.nlist, n);
     }
-    n->update_time = time(NULL);
+    /** \todo error handling */
+    gettimeofday(&n->update_time, NULL);
 
     return PBB_OKAY;
 }

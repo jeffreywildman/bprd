@@ -59,10 +59,10 @@ dubp_t dubpd = {
     .maddr = NULL,
     .maddrlen = 0, 
     .hello_seqno = 0,
-    .hello_interval = DUBP_DEFAULT_HELLO_INTERVAL,
-    .neighbor_timeout = DUBP_DEFAULT_HELLO_INTERVAL * DUBP_DEFAULT_NEIGHBOR_TIMEOUT,
-    .release_rate = DUBP_DEFAULT_RELEASE_RATE,
-    .update_rate = DUBP_DEFAULT_UPDATE_RATE
+    .hello_interval = DUBP_DEFAULT_HELLO_INTERVAL * USEC_PER_MSEC,
+    .release_interval = DUBP_DEFAULT_RELEASE_INTERVAL * USEC_PER_MSEC,
+    .update_interval = DUBP_DEFAULT_UPDATE_INTERVAL * USEC_PER_MSEC,
+    .neighbor_timeout = DUBP_DEFAULT_HELLO_INTERVAL * DUBP_DEFAULT_NEIGHBOR_TIMEOUT * USEC_PER_MSEC
 };
 
 /* options acted upon immediately before others */
@@ -80,8 +80,9 @@ static struct option long_options[] = {
     {"help", no_argument, NULL, 'h'},
     {"interface", required_argument, NULL, 'i'},
     {"pidfile", required_argument, NULL, 'p'},
-    {"release_rate", required_argument, NULL, 's'},
-    {"update_rate", required_argument, NULL, 't'},
+    {"hello_interval", required_argument, NULL, 's'},
+    {"release_interval", required_argument, NULL, 't'},
+    {"update_interval", required_argument, NULL, 'u'},
     {0,0,0,0}
 };
 
@@ -89,16 +90,17 @@ static void usage() {
     printf("Usage:\t%s [OPTION]...\n",dubpd.program);
     printf("Start the backpressure routing protocol with OPTIONs.\n\n");
     printf("Mandatory arguments to long options are mandatory for short options too.\n");
-    printf("  -4, --v4              \trun the protocol using IPv4 (default)\n");
-    printf("  -6, --v6              \trun the protocol using IPv6\n");
+    printf("  -4, --v4                  \trun the protocol using IPv4 (default)\n");
+    printf("  -6, --v6                  \trun the protocol using IPv6\n");
     printf("  -r, --commodity=\"ADDR,ID\"     \tdefine a commodity via command-line\n");
-    printf("  -c, --config=FILE     \tread configuration parameters from FILE\n");
-    printf("  -d, --daemon          \trun the program as a daemon\n");
-    printf("  -h, --help            \tprint this help message\n");
-    printf("  -i, --interface=IFACE \trun the protocol over interface IFACE (default is eth0)\n");
-    printf("  -p, --pidfile=FILE    \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
-    printf("  -s, --release_rate=MS \tset rate to MS (mseconds)\n");
-    printf("  -t, --update_rate=MS  \tset rate to MS (mseconds)\n");
+    printf("  -c, --config=FILE         \tread configuration parameters from FILE\n");
+    printf("  -d, --daemon              \trun the program as a daemon\n");
+    printf("  -h, --help                \tprint this help message\n");
+    printf("  -i, --interface=IFACE     \trun the protocol over interface IFACE (default is eth0)\n");
+    printf("  -p, --pidfile=FILE        \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
+    printf("  -s, --hello_interval=MS   \tset rate to MS (mseconds)\n");
+    printf("  -t, --release_interval=MS \tset rate to MS (mseconds)\n");
+    printf("  -u, --update_interval=MS  \tset rate to MS (mseconds)\n");
 }
 
 
@@ -266,7 +268,7 @@ void create_multicast() {
     if (dubpd.ipver == AF_INET6) {dubpd.maddrlen = sizeof(sockaddr_in6_t);} 
     else {dubpd.maddrlen = sizeof(sockaddr_in_t);}
 
-    if ((dubpd.maddr = (struct sockaddr_t *)malloc(dubpd.maddrlen)) == NULL) {
+    if ((dubpd.maddr = (struct sockaddr *)malloc(dubpd.maddrlen)) == NULL) {
         DUBP_LOG_ERR("Unable to allocate memory");
     }
     memset(dubpd.maddr, 0, sizeof(dubpd.maddrlen));
@@ -345,7 +347,7 @@ void dubp_init(int argc, char **argv) {
     opterr = 1;
 
     /* iterate through arguments again, optind is now first argument not recognized by original pass */
-    while ((c = getopt_long_only(argc, argv, "46r:c:dhi:p:s:t:", long_options, &lo_index)) != -1) {
+    while ((c = getopt_long_only(argc, argv, "46r:c:dhi:p:s:t:u:", long_options, &lo_index)) != -1) {
         switch (c) {
         case 0:
             if (long_options[lo_index].flag != 0) {
@@ -383,12 +385,16 @@ void dubp_init(int argc, char **argv) {
             dubpd.pidfile = optarg;
             break;
         case 's':
-            printf("release_rate option: %s\n", optarg);
-            dubpd.release_rate = (uint32_t)atoi(optarg);
+            printf("hello_interval option: %s\n", optarg);
+            dubpd.hello_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
             break;
         case 't':
-            printf("update_rate option: %s\n", optarg);
-            dubpd.update_rate = (uint32_t)atoi(optarg);
+            printf("release_interval option: %s\n", optarg);
+            dubpd.release_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
+            break;
+        case 'u':
+            printf("update_interval option: %s\n", optarg);
+            dubpd.update_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
             break;
         case '?':
             DUBP_LOG_ERR("Unable to parse input arguments");
@@ -457,9 +463,7 @@ void dubp_init(int argc, char **argv) {
     }
 
     /* timers */
-    /** \todo allow hello interval and neighbor timeout to be configurable - different from defaults */
-    //dubpd.hello_interval = DUBP_DEFAULT_HELLO_INTERVAL;
-    //dubpd.neighbor_timeout = dubpd.hello_interval * DUBP_DEFAULT_NEIGHBOR_TIMEOUT;
+    dubpd.neighbor_timeout = dubpd.hello_interval * DUBP_DEFAULT_NEIGHBOR_TIMEOUT;
 
     /* verify existing commodity list up to this point is of the correct type */
     elm_t *e;
@@ -510,7 +514,8 @@ int main(int argc, char **argv) {
         /* release a packet */
         backlogger_packet_release(1);
         /* wait prescribed time */
-        usleep(dubpd.release_rate*1000);
+        /** \todo change to nanosleep */
+        usleep(dubpd.release_interval);
     }
 
     /* close socket and get out of here */

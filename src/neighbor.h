@@ -2,17 +2,17 @@
 #define __NEIGHBOR_H
 
 #include <stdint.h>             /* for uint*_t */
-#include <sys/types.h>          /* for time_t */
+#include <sys/time.h>           /* for timeval */
 
 #include <common/netaddr.h>     /* for netaddr */
 
 #include "list.h"
 
 typedef struct neighbor {
-    struct netaddr addr;    /* address of the neighbor */
-    uint8_t bidir;          /* boolean integer indicating a bidirectional link to neighbor */
-    time_t update_time;     /* time last updated */ 
-    list_t clist;           /* commodity list of neighbor */
+    struct netaddr addr;        /* address of the neighbor */
+    uint8_t bidir;              /* boolean integer indicating a bidirectional link to neighbor */
+    struct timeval update_time; /* time last updated */ 
+    list_t clist;               /* commodity list of neighbor */
 } neighbor_t;
 
 extern void nlist_free(list_t *l);

@@ -14,6 +14,7 @@
 
 #include <linux/netlink.h>              /* for NETLINK_ROUTE */
 #include <unistd.h>      /* for usleep() */
+#include <pthread.h>     /* for pthread_create() */
 
 #include <netlink/addr.h>               /* for nl_addr, nl_addr_build(), nl_addr_put() */
 #include <netlink/errno.h>              /* for nl_geterror() */
@@ -385,8 +386,9 @@ static void *router_thread_main(void *arg __attribute__((unused)) ) {
         ntable_print(&dubpd.ntable);
         printf("---------------------------------------------------\n");
         ntable_mutex_unlock(&dubpd.ntable);
-        
-        usleep(dubpd.update_rate*1000);
+
+        /** \todo change to nanosleep */
+        usleep(dubpd.update_interval);
     }
 
     /** \todo clean up if while loop breaks? */

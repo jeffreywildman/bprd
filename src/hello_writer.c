@@ -166,8 +166,8 @@ static void *hello_writer_thread(void *arg __attribute__((unused)) ) {
         pbb_writer_create_message(&pbb_w, DUBP_MSG_TYPE_HELLO, useAllIf, NULL);
         pbb_writer_flush(&pbb_w, &pbb_iface, false);
 
-        /* TODO: allow interval to be fractions of a second */
-        sleep(dubpd.hello_interval);
+        /** \todo change to nanosleep() */
+        usleep(dubpd.hello_interval);
     }
 
     return NULL;
