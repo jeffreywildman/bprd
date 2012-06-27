@@ -134,13 +134,13 @@ static void backlogger_init() {
             continue;
         }
    
-        n = snprintf(cmd, 256, "/sbin/iptables -t raw -A OUTPUT -d %s -p udp -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
+        n = snprintf(cmd, 256, "/sbin/iptables -t raw -A OUTPUT -d %s -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
         if (n < 0 || n == 256) {
             DUBP_LOG_ERR("Unable to construct system string");
         }
         system(cmd);
 
-        n = snprintf(cmd, 256, "/sbin/iptables -t raw -A PREROUTING -d %s -p udp -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
+        n = snprintf(cmd, 256, "/sbin/iptables -t raw -A PREROUTING -d %s -j NFQUEUE --queue-num %d", netaddr_to_string(&naddr_str, &c->cdata.addr), c->nfq_id);
         if (n < 0 || n == 256) {
             DUBP_LOG_ERR("Unable to construct system string");
         }
