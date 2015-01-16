@@ -9,6 +9,7 @@ MOSTLYCLEANFILES = $(DX_CLEANFILES)
 
 MAINTAINERCLEANFILES = aclocal.m4 \
 					   configure \
+					   config/compile \
 					   config/depcomp \
 					   config/missing \
 					   config/config.guess \
