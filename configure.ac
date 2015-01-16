@@ -57,11 +57,9 @@ if test "$enable_optimization" == "yes"; then
 fi
 
 dnl Check the libraries that use pkg-config
+PKG_PROG_PKG_CONFIG([])
 PKG_CHECK_MODULES([LIBNETFILTER_QUEUE], [libnetfilter_queue])
 PKG_CHECK_MODULES([LIBNL_3_0], [libnl-3.0])
-dnl PKG_CHECK_MODULES([LIBGVC], [libgvc])
-dnl PKG_CHECK_MODULES([LIBGRAPH], [libgraph])
-dnl PKG_CHECK_MODULES([LIBCDT], [libcdt])
 
 dnl Add these flags to gcc and g++ 
 CPPFLAGS="${CPPFLAGS}"
