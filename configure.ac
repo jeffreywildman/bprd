@@ -36,9 +36,6 @@ AS_IF([test "${DX_FLAG_doc}" == 1],[enable_documentation=yes],[enable_documentat
 dnl Other macros
 dnl ***************************************************************************
 
-# Turn off shared libraries during development to cut down on compilation time.
-LT_INIT([disable-shared])
-
 AC_PROG_CC
 AC_PROG_CC_C_O
 AC_PROG_INSTALL
@@ -66,6 +63,11 @@ CPPFLAGS="${CPPFLAGS}"
 CFLAGS="${CFLAGS} -pipe -Wall -Wextra"
 LDFLAGS="${LDFLAGS}"
 LIBS="${LIBS}"
+
+dnl Libtool related macros
+LT_PREREQ([2.4.2])
+dnl Turn off shared libraries during development to cut down on compilation time
+LT_INIT([disable-shared])
 
 
 AC_CONFIG_FILES([Makefile \
