@@ -57,12 +57,13 @@ dnl Check the libraries that use pkg-config
 PKG_PROG_PKG_CONFIG([])
 PKG_CHECK_MODULES([LIBNETFILTER_QUEUE], [libnetfilter_queue])
 PKG_CHECK_MODULES([LIBNL_3_0], [libnl-3.0])
+PKG_CHECK_MODULES([LIBNL_ROUTE_3_0], [libnl-route-3.0])
 
 dnl Add these flags to gcc and g++ 
-CPPFLAGS="${CPPFLAGS}"
+CPPFLAGS="${CPPFLAGS} `pkg-config --cflags libnetfilter_queue libnl-3.0 libnl-route-3.0`"
 CFLAGS="${CFLAGS} -pipe -Wall -Wextra"
-LDFLAGS="${LDFLAGS}"
-LIBS="${LIBS}"
+LDFLAGS="${LDFLAGS} `pkg-config --libs-only-other libnetfilter_queue libnl-3.0 libnl-route-3.0`"
+LIBS="${LIBS} -Wl,--as-needed `pkg-config --libs-only-l libnetfilter_queue libnl-3.0 libnl-route-3.0`"
 
 dnl Libtool related macros
 LT_PREREQ([2.4.2])

@@ -3,8 +3,6 @@ bin_PROGRAMS = dubpd
 dubpd_CPPFLAGS = -I$(top_srcdir)/lib
 dubpd_LDFLAGS =
 dubpd_LDADD = -lpthread \
-			  -lnetfilter_queue \
-			  -lnl -lnl-route \
 			  $(top_srcdir)/lib/packetbb/libpacketbb.la
 dubpd_SOURCES = \
 				backlogger.c \
