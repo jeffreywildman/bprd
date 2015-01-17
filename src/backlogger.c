@@ -5,6 +5,7 @@
  */
 
 #include <pthread.h>        /* for pthread_create() */
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/queue.h>      /* for LIST_*() */
