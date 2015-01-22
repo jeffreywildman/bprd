@@ -1,0 +1,14 @@
+libcommon and libpacketbb are not part of the bprd program, but are used with
+bprd.  During the development of bprd in 2012, both supporting libraries were
+obtained from:
+
+  http://www.olsr.org/
+
+For copyright and license information pertaining to these supporting libraries,
+please refer to the copyrights and licenses contained within the respective
+common/ and packetbb/ subdirectories.
+
+Please note that as of this release, these libraries now appear to be organized
+within the following repository:
+
+  http://olsr.org/git/oonf_api.git
