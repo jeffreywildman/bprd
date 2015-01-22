@@ -20,15 +20,15 @@
 
 
 /**
- * \struct dubp_simple_fifo
+ * \struct bprd_simple_fifo
  * Simple FIFO queue for keep tracking packets currently being
  * held in the kernel. Each enqueued packet is given an id number
  * that is sequentially increasing.
- * \var dubp_simple_fifo::head
+ * \var bprd_simple_fifo::head
  * The ID of the most recently released packet.
- * \var dubp_simple_fifo::tail
+ * \var bprd_simple_fifo::tail
  * The ID of the most recently enqueued packet.
- * \var dubp_simple_fifo::qh
+ * \var bprd_simple_fifo::qh
  * The netfilter queue handle.
  */
 

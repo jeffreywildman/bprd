@@ -1,5 +1,5 @@
-#ifndef __DUBP_H
-#define __DUBP_H
+#ifndef __BPRD_H
+#define __BPRD_H
 
 #include <stdint.h>
 #include <sys/socket.h>
@@ -14,44 +14,44 @@
 #define IPPROTO_MANET 138  /* if running over SOCK_RAW */
 #define IPPORT_MANET 269   /* if running over SOCK_DGRAM */
 
-#define DUBP_DEFAULT_INTERFACE "eth0"
+#define BPRD_DEFAULT_INTERFACE "eth0"
 
 #define USEC_PER_MSEC 1000                  /* useconds/msecond */
-#define DUBP_DEFAULT_HELLO_INTERVAL 100     /* mseconds */
-#define DUBP_DEFAULT_RELEASE_INTERVAL 100   /* mseconds */
-#define DUBP_DEFAULT_UPDATE_INTERVAL 100    /* mseconds */
-#define DUBP_DEFAULT_NEIGHBOR_TIMEOUT 5     /* # of missed hello messages */
+#define BPRD_DEFAULT_HELLO_INTERVAL 100     /* mseconds */
+#define BPRD_DEFAULT_RELEASE_INTERVAL 100   /* mseconds */
+#define BPRD_DEFAULT_UPDATE_INTERVAL 100    /* mseconds */
+#define BPRD_DEFAULT_NEIGHBOR_TIMEOUT 5     /* # of missed hello messages */
 
 /**< \todo Move this into a config.h. */
-#define DUBP_DEFAULT_PIDLEN 25
-#define DUBP_DEFAULT_PIDSTR "/var/run/dubpd.pid"
-#define DUBP_DEFAULT_CONLEN 25
+#define BPRD_DEFAULT_PIDLEN 25
+#define BPRD_DEFAULT_PIDSTR "/var/run/bprd.pid"
+#define BPRD_DEFAULT_CONLEN 25
 /**< \todo Move this into a config.h. */
-#define DUBP_DEFAULT_CONSTR "/etc/dubpd.conf"
+#define BPRD_DEFAULT_CONSTR "/etc/bprd.conf"
 
-#define DUBP_MSG_TYPE_HELLO 1
+#define BPRD_MSG_TYPE_HELLO 1
 
-#define DUBP_MSGTLV_TYPE_COM 1
-#define DUBP_MSGTLV_TYPE_COMKEY 2
-#define DUBP_MSGTLV_TYPE_BACKLOG 3
+#define BPRD_MSGTLV_TYPE_COM 1
+#define BPRD_MSGTLV_TYPE_COMKEY 2
+#define BPRD_MSGTLV_TYPE_BACKLOG 3
 
 
 /** 
- * \struct dubp
- * Data structure defining a DUBP process.
+ * \struct bprd
+ * Data structure defining a BPRD process.
  */
-typedef struct dubp {
+typedef struct bprd {
     char    *program;           /**< Program name. */
     int     dmode;              /**< Boolean integer indicating if process is a daemon. */
     int     ipver;              /**< IP version. */
     char    *confile;           /**< Config file location. */
     char    *pidfile;           /**< Pidfile location. */
 
-    /** \todo Allow dubpd to run over multiple interfaces. */
-    unsigned int if_index;      /**< Index of the hardware interface running DUBP. */
-    char *if_name;              /**< Name of the hardware interface running DUBP. */
+    /** \todo Allow bprd to run over multiple interfaces. */
+    unsigned int if_index;      /**< Index of the hardware interface running BPRD. */
+    char *if_name;              /**< Name of the hardware interface running BPRD. */
     
-    int sockfd;                 /**< Socket descriptor running DUBP. */
+    int sockfd;                 /**< Socket descriptor running BPRD. */
     struct nl_addr *saddr_nl;
     struct sockaddr *saddr;     /**< Primary address assigned to interface \a if_name. */
     uint8_t saddrlen;           /**< Size of address \a saddr (bytes). */
@@ -80,9 +80,9 @@ typedef struct dubp {
     /* neighbor table */
     neighbortable_t ntable;     /**< Neighbor table. */
 
-} dubp_t;
+} bprd_t;
 
-extern dubp_t dubpd;
+extern bprd_t bprd;
 
 
-#endif /* __DUBP_H */
+#endif /* __BPRD_H */

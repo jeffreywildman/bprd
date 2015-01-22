@@ -8,7 +8,7 @@
 #include <string.h>
 #include <sys/socket.h>
 
-#include "dubp.h"
+#include "bprd.h"
 
 #define ETH_ALEN 6
 
@@ -85,7 +85,7 @@ void print_addrs () {
 
     printf("interfaces: \n");
     while(iflist) {
-        if (iflist->ifa_name && strcmp(iflist->ifa_name,dubpd.if_name) == 0) {
+        if (iflist->ifa_name && strcmp(iflist->ifa_name,bprd.if_name) == 0) {
             printf("%s: ", iflist->ifa_name);
         } else {
             goto skip;
@@ -119,13 +119,13 @@ void print_addrs () {
                 addr2str(iflist->ifa_addr, addrstr, addrstrlen);
                 printf("\taddress: %s\n", addrstr);
                 /* store this address for later */
-                /* TODO: verify assumption that dubpd.if_name will have only one IPv4 address */
+                /* TODO: verify assumption that bprd.if_name will have only one IPv4 address */
                 /* TODO: otherwise, need to know which IPv4 address to use! */
                 /* TODO: generalize to v4/v6 - need to know which IPv6 address to use! */
                 if (family == AF_INET) {
-                    dubpd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in_t));
-                    memcpy(dubpd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,sizeof(sockaddr_in_t));
-                    dubpd.saddrlen = sizeof(sockaddr_in_t);
+                    bprd.saddr = (sockaddr_t *)malloc(sizeof(sockaddr_in_t));
+                    memcpy(bprd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,sizeof(sockaddr_in_t));
+                    bprd.saddrlen = sizeof(sockaddr_in_t);
                 }
             }
         }

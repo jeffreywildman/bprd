@@ -1,4 +1,4 @@
-_dubpd()
+_bprd()
 {
 	local cur prev opts
 	COMPREPLY=()
@@ -11,4 +11,4 @@ _dubpd()
 		return 0
 	fi
 }
-complete -F _dubpd dubpd
+complete -F _bprd bprd

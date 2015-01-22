@@ -1,6 +1,6 @@
 /**
  * \defgroup daemonizer Daemonizer
- * This module handles the conversion of a DUBP process into a daemon.  
+ * This module handles the conversion of a BPRD process into a daemon.  
  * \{
  */
 
@@ -11,7 +11,7 @@
 #include <sys/stat.h>       /* for umask() */
 #include <unistd.h>         /* for fork(), setsid(), chdir(), close() */
 
-#include "dubp.h"
+#include "bprd.h"
 #include "logger.h"
 #include "pidfile.h"
 
@@ -24,8 +24,8 @@
  */
 static void daemon_handler_sigterm(int signum __attribute__ ((unused))) {
 
-    if (pidfile_destroy(dubpd.pidfile) < 0) {
-        DUBP_LOG_ERR("Unable to destroy pidfile");        
+    if (pidfile_destroy(bprd.pidfile) < 0) {
+        BPRD_LOG_ERR("Unable to destroy pidfile");        
     }
     exit(1);
 }
@@ -42,7 +42,7 @@ int daemon_create() {
     pid_t pid, sid;
 
     if ((pid = fork()) < 0) {
-        DUBP_LOG_ERR("Unable to create interim daemon process");
+        BPRD_LOG_ERR("Unable to create interim daemon process");
     } else if (pid > 0) {
         /* this is the parent process */
         exit(0);
@@ -51,13 +51,13 @@ int daemon_create() {
 
     /* make child process a group leader */
     if ((sid = setsid()) < 0) {
-        DUBP_LOG_ERR("Unable to make interim daemon a process group leader");
+        BPRD_LOG_ERR("Unable to make interim daemon a process group leader");
     }
 
     /* ignore signal hang up */
     signal(SIGHUP, SIG_IGN);
     if ((pid = fork()) < 0) {
-        DUBP_LOG_ERR("Unable to create daemon process");
+        BPRD_LOG_ERR("Unable to create daemon process");
     } else if (pid > 0) {
         /* this is the interim daemon process */
         exit(0);
@@ -74,15 +74,15 @@ int daemon_create() {
     sa.sa_flags = 0;
 
     /* TODO: attempt to create lock on /var/run/pid file before creating daemon */
-    if (pidfile_create(dubpd.pidfile) < 0) {
-        DUBP_LOG_ERR("Unable to create pidfile");
+    if (pidfile_create(bprd.pidfile) < 0) {
+        BPRD_LOG_ERR("Unable to create pidfile");
     }
 
     /* install our SIGTERM handler */
     if (sigaction(SIGTERM, &sa, NULL) < 0) {
-        DUBP_LOG_ERR("Unable to set up SIGTERM handler");
-        if (pidfile_destroy(dubpd.pidfile) < 0) {
-            DUBP_LOG_ERR("Unable to destroy pidfile");   
+        BPRD_LOG_ERR("Unable to set up SIGTERM handler");
+        if (pidfile_destroy(bprd.pidfile) < 0) {
+            BPRD_LOG_ERR("Unable to destroy pidfile");   
         }
     }
 

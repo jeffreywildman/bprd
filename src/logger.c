@@ -14,14 +14,14 @@
 
 
 /**
- * \def DUBP_LOG_ERR(fmt,...) Logs an error message and exits.
+ * \def BPRD_LOG_ERR(fmt,...) Logs an error message and exits.
  * \param fmt Printf-style format string.
  * \param ... Arguments corresponding to format string \a fmt.
  */
 
 
 /**
- * \def DUBP_LOG_DBG(fmt,...) Logs a debug message.
+ * \def BPRD_LOG_DBG(fmt,...) Logs a debug message.
  * \param fmt Printf-style format string.
  * \param ... Arguments corresponding to format string \a fmt.
  */

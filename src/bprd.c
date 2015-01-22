@@ -1,13 +1,13 @@
 /*
- * Drexel University Backpressure Daemon
+ * Backpressure Routing Daemon (BPRD)
  */
 
 /**
- * \defgroup dubp DUBP
+ * \defgroup bprd BPRD
  * \{
  */
 
-#include "dubp.h"
+#include "bprd.h"
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -43,7 +43,7 @@
 
 
 /* pre-initialization of runtime variables */
-dubp_t dubpd = {
+bprd_t bprd = {
     .program = NULL,
     .dmode = 0,
     .ipver = AF_INET,
@@ -59,10 +59,10 @@ dubp_t dubpd = {
     .maddr = NULL,
     .maddrlen = 0, 
     .hello_seqno = 0,
-    .hello_interval = DUBP_DEFAULT_HELLO_INTERVAL * USEC_PER_MSEC,
-    .release_interval = DUBP_DEFAULT_RELEASE_INTERVAL * USEC_PER_MSEC,
-    .update_interval = DUBP_DEFAULT_UPDATE_INTERVAL * USEC_PER_MSEC,
-    .neighbor_timeout = DUBP_DEFAULT_HELLO_INTERVAL * DUBP_DEFAULT_NEIGHBOR_TIMEOUT * USEC_PER_MSEC
+    .hello_interval = BPRD_DEFAULT_HELLO_INTERVAL * USEC_PER_MSEC,
+    .release_interval = BPRD_DEFAULT_RELEASE_INTERVAL * USEC_PER_MSEC,
+    .update_interval = BPRD_DEFAULT_UPDATE_INTERVAL * USEC_PER_MSEC,
+    .neighbor_timeout = BPRD_DEFAULT_HELLO_INTERVAL * BPRD_DEFAULT_NEIGHBOR_TIMEOUT * USEC_PER_MSEC
 };
 
 /* options acted upon immediately before others */
@@ -87,7 +87,7 @@ static struct option long_options[] = {
 };
 
 static void usage() {
-    printf("Usage:\t%s [OPTION]...\n",dubpd.program);
+    printf("Usage:\t%s [OPTION]...\n",bprd.program);
     printf("Start the backpressure routing protocol with OPTIONs.\n\n");
     printf("Mandatory arguments to long options are mandatory for short options too.\n");
     printf("  -4, --v4                  \trun the protocol using IPv4 (default)\n");
@@ -97,7 +97,7 @@ static void usage() {
     printf("  -d, --daemon              \trun the program as a daemon\n");
     printf("  -h, --help                \tprint this help message\n");
     printf("  -i, --interface=IFACE     \trun the protocol over interface IFACE (default is eth0)\n");
-    printf("  -p, --pidfile=FILE        \tset pid file to FILE (default is /var/run/dubpd.pid)\n");
+    printf("  -p, --pidfile=FILE        \tset pid file to FILE (default is /var/run/bprd.pid)\n");
     printf("  -s, --hello_interval=MS   \tset rate to MS (mseconds)\n");
     printf("  -t, --release_interval=MS \tset rate to MS (mseconds)\n");
     printf("  -u, --update_interval=MS  \tset rate to MS (mseconds)\n");
@@ -112,8 +112,8 @@ static void socket_init() {
     struct ip_mreqn mreq;
 
     /* create socket */
-    if ((dubpd.sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
-        DUBP_LOG_ERR("Unable to create socket");
+    if ((bprd.sockfd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+        BPRD_LOG_ERR("Unable to create socket");
     }
 
     /* construct binding address */
@@ -123,35 +123,35 @@ static void socket_init() {
     saddr.sin_port = htons(IPPORT_MANET);
 
     /* bind address to socket */
-    if (bind(dubpd.sockfd, (const struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
-        DUBP_LOG_ERR("Unable to bind socket: %s", strerror(errno));
+    if (bind(bprd.sockfd, (const struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
+        BPRD_LOG_ERR("Unable to bind socket: %s", strerror(errno));
     }
 
     /* construct multicast request data structure */ 
     memset(&mreq.imr_multiaddr, 0, sizeof(mreq.imr_multiaddr));
     memset(&mreq.imr_address, 0, sizeof(mreq.imr_address));
     if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &mreq.imr_multiaddr) <= 0) {
-        DUBP_LOG_ERR("Unable to convert MANET link local address");
+        BPRD_LOG_ERR("Unable to convert MANET link local address");
     }
-    if ((mreq.imr_ifindex = netif_nametoindex(dubpd.if_name)) <= 0) {
-        DUBP_LOG_ERR("Unable to convert device name to index");
+    if ((mreq.imr_ifindex = netif_nametoindex(bprd.if_name)) <= 0) {
+        BPRD_LOG_ERR("Unable to convert device name to index");
     }
 
     /* join multicast group on the desired interface */
     /* now we should be able to receive multicast messages on this interface as well */
-    if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
-        DUBP_LOG_ERR("Unable to join multicast group");
+    if (setsockopt(bprd.sockfd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mreq, sizeof(mreq)) < 0) {
+        BPRD_LOG_ERR("Unable to join multicast group");
     }
 
     /* do not loopback multicast messages */
     char loop = 0;
-    if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop)) < 0) {
-        DUBP_LOG_ERR("Unable to disable multicast loopback");
+    if (setsockopt(bprd.sockfd, IPPROTO_IP, IP_MULTICAST_LOOP, &loop, sizeof(loop)) < 0) {
+        BPRD_LOG_ERR("Unable to disable multicast loopback");
     }
 
     /* set default interface for outgoing multicast messages */
-    if (setsockopt(dubpd.sockfd, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
-        DUBP_LOG_ERR("Unable to set default outgoing multicast interface");
+    if (setsockopt(bprd.sockfd, IPPROTO_IP, IP_MULTICAST_IF, &mreq, sizeof(mreq)) < 0) {
+        BPRD_LOG_ERR("Unable to set default outgoing multicast interface");
     }
 
 }
@@ -169,23 +169,23 @@ void create_commodity(char *buf) {
 
     /* extract fields from string */
     if (sscanf(buf, "%[^,],%u\n", addrstr, &nfq_id) != 2) {  /* we want exactly two args processed */
-        DUBP_LOG_ERR("Error parsing commodity string");   
+        BPRD_LOG_ERR("Error parsing commodity string");   
     }
 
     /* create new commodity */
     c = (commodity_t *)malloc(sizeof(commodity_t));
     memset(c, 0, sizeof(*c));
     if (netaddr_from_string(&c->cdata.addr, addrstr) < 0) {
-        DUBP_LOG_ERR("Unable to convert string to address");
+        BPRD_LOG_ERR("Unable to convert string to address");
     }
     /* check for duplicate */
-    if (clist_find(&dubpd.clist, c) != NULL) {
-        DUBP_LOG_ERR("Duplicate commodity detected");
+    if (clist_find(&bprd.clist, c) != NULL) {
+        BPRD_LOG_ERR("Duplicate commodity detected");
     }
     c->cdata.backlog = 0;
     c->nfq_id = nfq_id;
     c->queue = NULL;
-    list_insert(&dubpd.clist, c);
+    list_insert(&bprd.clist, c);
 }
 
 
@@ -197,18 +197,18 @@ int confile_read() {
     FILE *confd;
     char buf[256];
 
-    if ((confd = fopen(dubpd.confile, "r")) == NULL) {
+    if ((confd = fopen(bprd.confile, "r")) == NULL) {
         return -1;
     } 
 
     if (fileno(confd) < 0) {
-        DUBP_LOG_ERR("Config file not valid");
+        BPRD_LOG_ERR("Config file not valid");
     }
 
     /* parse config file */
     while (fgets(buf, 255, confd)) {
         if (strlen(buf) == 255) {
-            DUBP_LOG_ERR("Line in config file too long!");
+            BPRD_LOG_ERR("Line in config file too long!");
         }
         if (buf[0] == '#') {
             /* skip comment */
@@ -218,7 +218,7 @@ int confile_read() {
     };
 
     if (ferror(confd)) {
-        DUBP_LOG_ERR("Error while reading from config file");
+        BPRD_LOG_ERR("Error while reading from config file");
     } 
 
     fclose(confd);
@@ -232,24 +232,24 @@ void create_primary() {
 
     struct ifaddrs *iflist, *ifhead;
 
-    if (dubpd.ipver == AF_INET6) {dubpd.saddrlen = sizeof(sockaddr_in6_t);} 
-    else {dubpd.saddrlen = sizeof(sockaddr_in_t);}
+    if (bprd.ipver == AF_INET6) {bprd.saddrlen = sizeof(sockaddr_in6_t);} 
+    else {bprd.saddrlen = sizeof(sockaddr_in_t);}
 
     if (getifaddrs(&iflist) < 0) {
-        DUBP_LOG_ERR("Unable to get interface addresses");
+        BPRD_LOG_ERR("Unable to get interface addresses");
     }
 
     ifhead = iflist;
 
     while(iflist) {
-        if (iflist->ifa_name && strcmp(iflist->ifa_name,dubpd.if_name) == 0) {
+        if (iflist->ifa_name && strcmp(iflist->ifa_name,bprd.if_name) == 0) {
             unsigned int family = iflist->ifa_addr->sa_family;
-            if (iflist->ifa_addr && family == (uint8_t)dubpd.ipver) {
+            if (iflist->ifa_addr && family == (uint8_t)bprd.ipver) {
                 /** \todo validate or remove assumption that first IPv4/v6 address on the desired interface is the correct one! */
-                if ((dubpd.saddr = (sockaddr_t *)malloc(dubpd.saddrlen)) == NULL) {
-                    DUBP_LOG_ERR("Unable to allocate memory");
+                if ((bprd.saddr = (sockaddr_t *)malloc(bprd.saddrlen)) == NULL) {
+                    BPRD_LOG_ERR("Unable to allocate memory");
                 }
-                memcpy(dubpd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,dubpd.saddrlen);
+                memcpy(bprd.saddr,(const sockaddr_in_t *)iflist->ifa_addr,bprd.saddrlen);
                 break;
             }
         }
@@ -265,47 +265,47 @@ void create_multicast() {
     void *addr;
     int err;
 
-    if (dubpd.ipver == AF_INET6) {dubpd.maddrlen = sizeof(sockaddr_in6_t);} 
-    else {dubpd.maddrlen = sizeof(sockaddr_in_t);}
+    if (bprd.ipver == AF_INET6) {bprd.maddrlen = sizeof(sockaddr_in6_t);} 
+    else {bprd.maddrlen = sizeof(sockaddr_in_t);}
 
-    if ((dubpd.maddr = (struct sockaddr *)malloc(dubpd.maddrlen)) == NULL) {
-        DUBP_LOG_ERR("Unable to allocate memory");
+    if ((bprd.maddr = (struct sockaddr *)malloc(bprd.maddrlen)) == NULL) {
+        BPRD_LOG_ERR("Unable to allocate memory");
     }
-    memset(dubpd.maddr, 0, sizeof(dubpd.maddrlen));
-    dubpd.maddr->sa_family = dubpd.ipver;
+    memset(bprd.maddr, 0, sizeof(bprd.maddrlen));
+    bprd.maddr->sa_family = bprd.ipver;
 
-    if (dubpd.ipver == AF_INET6) {
-        addr = &(((sockaddr_in6_t *)dubpd.maddr)->sin6_addr);
-        err = inet_pton(dubpd.ipver, MANET_LINKLOCAL_ROUTERS_V6, addr);
-        ((sockaddr_in6_t *)dubpd.maddr)->sin6_port = htons(IPPORT_MANET);
+    if (bprd.ipver == AF_INET6) {
+        addr = &(((sockaddr_in6_t *)bprd.maddr)->sin6_addr);
+        err = inet_pton(bprd.ipver, MANET_LINKLOCAL_ROUTERS_V6, addr);
+        ((sockaddr_in6_t *)bprd.maddr)->sin6_port = htons(IPPORT_MANET);
     } else {
-        addr = &(((sockaddr_in_t *)dubpd.maddr)->sin_addr);
-        err = inet_pton(dubpd.ipver, MANET_LINKLOCAL_ROUTERS_V4, addr);
-        ((sockaddr_in_t *)dubpd.maddr)->sin_port = htons(IPPORT_MANET);
+        addr = &(((sockaddr_in_t *)bprd.maddr)->sin_addr);
+        err = inet_pton(bprd.ipver, MANET_LINKLOCAL_ROUTERS_V4, addr);
+        ((sockaddr_in_t *)bprd.maddr)->sin_port = htons(IPPORT_MANET);
     } 
 
     if (err <= 0) {
-        DUBP_LOG_ERR("Unable to convert MANET link local address");
+        BPRD_LOG_ERR("Unable to convert MANET link local address");
     }
 }
 
 
-/* initialize dubp instance */
+/* initialize bprd instance */
 /* precedence of options, i) command-line, ii) config file, iii) in-code defaults */
 /* bash_completion of command-line args */
-void dubp_init(int argc, char **argv) {
+void bprd_init(int argc, char **argv) {
 
     int c;
 
-    dubpd.program = argv[0];
+    bprd.program = argv[0];
     /* must be initialized prior to config file read in! */
     /* initialize my commodity list */
-    list_init(&dubpd.clist);  
+    list_init(&bprd.clist);  
     /* initialize my neighbor table */
-    ntable_mutex_init(&dubpd.ntable);
-    ntable_mutex_lock(&dubpd.ntable);
-    list_init(&dubpd.ntable.nlist);
-    ntable_mutex_unlock(&dubpd.ntable);
+    ntable_mutex_init(&bprd.ntable);
+    ntable_mutex_lock(&bprd.ntable);
+    list_init(&bprd.ntable.nlist);
+    ntable_mutex_unlock(&bprd.ntable);
 
     int lo_index;
     opterr = 0;
@@ -315,7 +315,7 @@ void dubp_init(int argc, char **argv) {
         switch (c) {
         case 'c':
             printf("config file option: %s\n", optarg);
-            dubpd.confile = optarg;
+            bprd.confile = optarg;
             break;
         case 'h':
             usage();
@@ -328,18 +328,18 @@ void dubp_init(int argc, char **argv) {
     }
 
     /* set confile location */
-    if (!dubpd.confile) {
-        if (!(dubpd.confile = (char *)malloc(DUBP_DEFAULT_CONLEN*sizeof(char)))) {
-            DUBP_LOG_ERR("Unable to allocate memory");
+    if (!bprd.confile) {
+        if (!(bprd.confile = (char *)malloc(BPRD_DEFAULT_CONLEN*sizeof(char)))) {
+            BPRD_LOG_ERR("Unable to allocate memory");
         }
-        if (sprintf(dubpd.confile, "%s", DUBP_DEFAULT_CONSTR) < 0) {
-            DUBP_LOG_ERR("Unable to set default confile string");
+        if (sprintf(bprd.confile, "%s", BPRD_DEFAULT_CONSTR) < 0) {
+            BPRD_LOG_ERR("Unable to set default confile string");
         }
     }
 
     /* read from configuration file before parsing remaining command-line args */
     if (confile_read() < 0) {
-        DUBP_LOG_DBG("Unable to open configuration file: %s", dubpd.confile);
+        BPRD_LOG_DBG("Unable to open configuration file: %s", bprd.confile);
     }
 
     /* reset optind to reparse command-line args */
@@ -356,11 +356,11 @@ void dubp_init(int argc, char **argv) {
             break;
         case '4':
             printf("v4 option\n");
-            dubpd.ipver = AF_INET;
+            bprd.ipver = AF_INET;
             break;
         case '6':
             printf("v6 option\n");
-            dubpd.ipver = AF_INET6;
+            bprd.ipver = AF_INET6;
             break;
         case 'r':
             printf("commodity option: %s\n", optarg);
@@ -371,36 +371,36 @@ void dubp_init(int argc, char **argv) {
             break;
         case 'd':
             printf("daemon option");
-            dubpd.dmode = 1;
+            bprd.dmode = 1;
             break;
         case 'h':
             /* ignore help this time around! */
             break;
         case 'i':
             printf("interface: %s\n", optarg);
-            dubpd.if_name = optarg;
+            bprd.if_name = optarg;
             break;
         case 'p':
             printf("pidfile option: %s\n", optarg);
-            dubpd.pidfile = optarg;
+            bprd.pidfile = optarg;
             break;
         case 's':
             printf("hello_interval option: %s\n", optarg);
-            dubpd.hello_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
+            bprd.hello_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
             break;
         case 't':
             printf("release_interval option: %s\n", optarg);
-            dubpd.release_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
+            bprd.release_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
             break;
         case 'u':
             printf("update_interval option: %s\n", optarg);
-            dubpd.update_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
+            bprd.update_interval = ((uint32_t)atoi(optarg))*USEC_PER_MSEC;
             break;
         case '?':
-            DUBP_LOG_ERR("Unable to parse input arguments");
+            BPRD_LOG_ERR("Unable to parse input arguments");
             break;
         default:
-            DUBP_LOG_ERR("Unable to parse input arguments");
+            BPRD_LOG_ERR("Unable to parse input arguments");
             break;
         }
     }
@@ -412,66 +412,66 @@ void dubp_init(int argc, char **argv) {
             printf("Unrecognized option: %s\n", argv[optind++]); 
         }
         usage();
-        DUBP_LOG_DBG("Unrecognized options on command-line input");
+        BPRD_LOG_DBG("Unrecognized options on command-line input");
     }
 
     /* set remaining parameters to defaults */ 
 
     /* set pidfile location */
-    if (!dubpd.pidfile) {
-        if (!(dubpd.pidfile = (char *)malloc(DUBP_DEFAULT_PIDLEN*sizeof(char)))) {
-            DUBP_LOG_ERR("Unable to allocate memory");
+    if (!bprd.pidfile) {
+        if (!(bprd.pidfile = (char *)malloc(BPRD_DEFAULT_PIDLEN*sizeof(char)))) {
+            BPRD_LOG_ERR("Unable to allocate memory");
         }
-        if (sprintf(dubpd.pidfile, "%s", DUBP_DEFAULT_PIDSTR) < 0) {
-            DUBP_LOG_ERR("Unable to set default pidfile string");
+        if (sprintf(bprd.pidfile, "%s", BPRD_DEFAULT_PIDSTR) < 0) {
+            BPRD_LOG_ERR("Unable to set default pidfile string");
         }
     }
 
     /* get hardware interface name */
-    if (!dubpd.if_name) {
-        if (!(dubpd.if_name = (char *)malloc(NETIF_NAMESIZE*sizeof(char)))) {
-            DUBP_LOG_ERR("Unable to allocate memory");
+    if (!bprd.if_name) {
+        if (!(bprd.if_name = (char *)malloc(NETIF_NAMESIZE*sizeof(char)))) {
+            BPRD_LOG_ERR("Unable to allocate memory");
         }
-        if (snprintf(dubpd.if_name, NETIF_NAMESIZE*sizeof(char), "%s", DUBP_DEFAULT_INTERFACE) < 0) {
-            DUBP_LOG_ERR("Unable to set default interface string");
+        if (snprintf(bprd.if_name, NETIF_NAMESIZE*sizeof(char), "%s", BPRD_DEFAULT_INTERFACE) < 0) {
+            BPRD_LOG_ERR("Unable to set default interface string");
         }
     }
     /* get hardware interface index */
-    if ((dubpd.if_index = netif_nametoindex(dubpd.if_name)) == 0) {
-        DUBP_LOG_ERR("Unable to get index of hardware interface: %s", dubpd.if_name);
+    if ((bprd.if_index = netif_nametoindex(bprd.if_name)) == 0) {
+        BPRD_LOG_ERR("Unable to get index of hardware interface: %s", bprd.if_name);
     }
 
     /* check ipver */
-    if (dubpd.ipver != AF_INET && dubpd.ipver != AF_INET6) {
-        DUBP_LOG_ERR("Unknown IP version");
+    if (bprd.ipver != AF_INET && bprd.ipver != AF_INET6) {
+        BPRD_LOG_ERR("Unknown IP version");
     }
 
-    /* get current address on the hardware interface running DUBP */
-    if (!dubpd.saddr) {
+    /* get current address on the hardware interface running BPRD */
+    if (!bprd.saddr) {
         create_primary();
     }
-    if (!dubpd.saddr) {
-        DUBP_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", dubpd.if_name);
+    if (!bprd.saddr) {
+        BPRD_LOG_ERR("Unable to find pre-existing IP address of the desired version on the desired interface: %s", bprd.if_name);
     }
 
     /* get multicast address for hello messages */
-    if (!dubpd.maddr) {
+    if (!bprd.maddr) {
         create_multicast();
     }
-    if (!dubpd.maddr) {
-        DUBP_LOG_ERR("Unable to create multicast address");
+    if (!bprd.maddr) {
+        BPRD_LOG_ERR("Unable to create multicast address");
     }
 
     /* timers */
-    dubpd.neighbor_timeout = dubpd.hello_interval * DUBP_DEFAULT_NEIGHBOR_TIMEOUT;
+    bprd.neighbor_timeout = bprd.hello_interval * BPRD_DEFAULT_NEIGHBOR_TIMEOUT;
 
     /* verify existing commodity list up to this point is of the correct type */
     elm_t *e;
     commodity_t *com;
-    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+    for(e = LIST_FIRST(&bprd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         com = (commodity_t *)e->data;
-        if (com->cdata.addr.type != dubpd.ipver) {
-            DUBP_LOG_ERR("Commodity destination IP address version does not match program's IP version");      
+        if (com->cdata.addr.type != bprd.ipver) {
+            BPRD_LOG_ERR("Commodity destination IP address version does not match program's IP version");      
         }
         /** \todo Verify uniqueness of nfq_id on each commodity. */
     }
@@ -484,10 +484,10 @@ int main(int argc, char **argv) {
     logger_init();
 
     /* set instance parameters */
-    dubp_init(argc, argv);
+    bprd_init(argc, argv);
 
     /* switch over to daemon process */
-    if (dubpd.dmode) {daemon_create();}
+    if (bprd.dmode) {daemon_create();}
 
     /* start up socket */
     socket_init();
@@ -515,11 +515,11 @@ int main(int argc, char **argv) {
         backlogger_packet_release(1);
         /* wait prescribed time */
         /** \todo change to nanosleep */
-        usleep(dubpd.release_interval);
+        usleep(bprd.release_interval);
     }
 
     /* close socket and get out of here */
-    close(dubpd.sockfd);
+    close(bprd.sockfd);
 
     /* cleanup logging */
     logger_cleanup();

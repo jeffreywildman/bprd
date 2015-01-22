@@ -2,13 +2,13 @@ dnl Autoconf initialization and config macros
 dnl ***************************************************************************
 
 AC_PREREQ([2.67])
-AC_INIT([dubp],[0.1.0],[jeffrey.wildman@gmail.com],[],[])
+AC_INIT([bprd],[0.1.0],[jeffrey.wildman@gmail.com],[],[])
 
 dnl Come up with a nice explanation for this when it is actually used
 dnl AC_CONFIG_HEADERS([config.h])
 
 dnl Source directory sanity check using an arbitrary source file
-AC_CONFIG_SRCDIR([src/dubp.c])
+AC_CONFIG_SRCDIR([src/bprd.c])
 
 dnl install-sh will be searched (and found) here
 AC_CONFIG_AUX_DIR([config])

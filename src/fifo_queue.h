@@ -18,7 +18,7 @@ typedef struct nfq_q_handle nfq_qh_t;
 typedef struct nfgenmsg nfgenmsg_t;
 typedef struct nfq_data nfq_data_t;
 
-typedef struct dubp_simple_fifo {
+typedef struct bprd_simple_fifo {
 	uint32_t head;
 	uint32_t tail;
 

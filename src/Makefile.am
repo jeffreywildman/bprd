@@ -1,14 +1,14 @@
-bin_PROGRAMS = dubpd
+bin_PROGRAMS = bprd
 
-dubpd_CPPFLAGS = -I$(top_srcdir)/lib
-dubpd_LDFLAGS =
-dubpd_LDADD = -lpthread \
+bprd_CPPFLAGS = -I$(top_srcdir)/lib
+bprd_LDFLAGS =
+bprd_LDADD = -lpthread \
 			  $(top_srcdir)/lib/packetbb/libpacketbb.la
-dubpd_SOURCES = \
+bprd_SOURCES = \
 				backlogger.c \
 				commodity.c \
 				daemonizer.c \
-				dubp.c \
+				bprd.c \
 				fifo_queue.c \
 				hello_reader.c \
 				hello_writer.c \

@@ -9,7 +9,7 @@
 #include <pthread.h>        /* for pthread_mutex_*() */ 
 #include <sys/time.h>       /* for timeval, gettimeofday() */
 
-#include "dubp.h"
+#include "bprd.h"
 #include "logger.h"
 #include "commodity.h"
 #include "neighbor.h"
@@ -43,7 +43,7 @@ static int cond_n_expired(void *data) {
 
     elapsed = (now.tv_sec - n->update_time.tv_sec) * 1000000;
     elapsed += (now.tv_usec - n->update_time.tv_usec);
-    return (elapsed > dubpd.neighbor_timeout);
+    return (elapsed > bprd.neighbor_timeout);
 }
 
 
@@ -72,7 +72,7 @@ void ntable_mutex_init(neighbortable_t *ntable) {
     assert(ntable);
 
     if (pthread_mutex_init(&ntable->mutex, NULL) < 0) {
-        DUBP_LOG_ERR("Unable to intialize ntable mutex");   
+        BPRD_LOG_ERR("Unable to intialize ntable mutex");   
     }
 }
 
@@ -88,7 +88,7 @@ void ntable_mutex_lock(neighbortable_t *ntable) {
     assert(ntable);
 
     if (pthread_mutex_lock(&ntable->mutex) < 0) {
-        DUBP_LOG_ERR("Unable to lock ntable mutex");   
+        BPRD_LOG_ERR("Unable to lock ntable mutex");   
     }
 }
 
@@ -103,7 +103,7 @@ void ntable_mutex_unlock(neighbortable_t *ntable) {
     assert(ntable);
 
     if (pthread_mutex_unlock(&ntable->mutex) < 0) {
-        DUBP_LOG_ERR("Unable to lock ntable mutex");   
+        BPRD_LOG_ERR("Unable to lock ntable mutex");   
     }
 }
 

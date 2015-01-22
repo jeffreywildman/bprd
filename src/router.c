@@ -1,6 +1,6 @@
 /**
  * \defgroup router Router
- * This module interfaces the DUBP process with the kernel's routing table to add/update/delete routes.
+ * This module interfaces the BPRD process with the kernel's routing table to add/update/delete routes.
  * \{
  */
 
@@ -27,7 +27,7 @@
 #include "commodity.h"
 #include "neighbor.h"
 #include "list.h"
-#include "dubp.h"
+#include "bprd.h"
 #include "netif.h"      /* for netif_indextoname(), NETIF_NAMESIZE */
 
 
@@ -165,7 +165,7 @@ static void router_route_update(struct sockaddr *dst, struct sockaddr *nh, unsig
 
     /* input checking */
     if (dst == NULL) {
-        DUBP_LOG_ERR("Destination address is empty");
+        BPRD_LOG_ERR("Destination address is empty");
     }
 
     /* convert socket addresses to netlink abstract addresses */
@@ -179,16 +179,16 @@ static void router_route_update(struct sockaddr *dst, struct sockaddr *nh, unsig
     }
 
     if (nl_dst_addr == NULL || (nh != NULL && nl_nh_addr == NULL)) {
-        DUBP_LOG_ERR("Unable to convert socket addresses to netlink abstract addresses");
+        BPRD_LOG_ERR("Unable to convert socket addresses to netlink abstract addresses");
     }
 
     /* create route and add preliminary fields */
     if ((route = rtnl_route_alloc()) == NULL ) {
-        DUBP_LOG_ERR("Unable to allocate netlink route");
+        BPRD_LOG_ERR("Unable to allocate netlink route");
     }
     rtnl_route_set_table(route,rtnl_route_str2table("main"));
     rtnl_route_set_scope(route,rtnl_str2scope("universe"));
-    /** \todo Change from static to dubp-specific protocol number? */
+    /** \todo Change from static to bprd-specific protocol number? */
     rtnl_route_set_protocol(route,rtnl_route_str2proto("static"));
     rtnl_route_set_family(route,family);
     rtnl_route_set_dst(route,nl_dst_addr);  
@@ -201,7 +201,7 @@ static void router_route_update(struct sockaddr *dst, struct sockaddr *nh, unsig
         rtnl_route_nh_set_gateway(nexthop,nl_nh_addr);
         rtnl_route_add_nexthop(route,nexthop);
         if ((err = rtnl_route_add(router_nlsk,route,NLM_F_REPLACE)) < 0) {
-            DUBP_LOG_ERR("Error adding route: %s\n", nl_geterror(err));
+            BPRD_LOG_ERR("Error adding route: %s\n", nl_geterror(err));
         }
         rtnl_route_nh_free(nexthop);
         nl_addr_put(nl_nh_addr); 
@@ -209,7 +209,7 @@ static void router_route_update(struct sockaddr *dst, struct sockaddr *nh, unsig
         /* remove from table */
         /** \todo figure out what happens if route doesn't already exist in table */
         if ((err = rtnl_route_delete(router_nlsk,route,0)) < 0) {
-            DUBP_LOG_ERR("Error deleting route: %s\n", nl_geterror(err));
+            BPRD_LOG_ERR("Error deleting route: %s\n", nl_geterror(err));
         }
     }
 
@@ -231,30 +231,30 @@ static void router_update() {
     union netaddr_socket nsaddr;
    
     /* convert my address into a netaddr for easy comparison */
-    nsaddr.std = *dubpd.saddr; 
+    nsaddr.std = *bprd.saddr; 
     netaddr_from_socket(&naddr, &nsaddr);
 
     /* update my commodity levels */
-    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+    for(e = LIST_FIRST(&bprd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         c = (commodity_t *)e->data;
         c->cdata.backlog = fifo_length(c->queue);
 
         /* print backlog level to syslog */
-        DUBP_LOG_INFO("Commodity: %u, Backlog: %u", c->nfq_id, c->cdata.backlog);
+        BPRD_LOG_INFO("Commodity: %u, Backlog: %u", c->nfq_id, c->cdata.backlog);
     }
 
-    ntable_mutex_lock(&dubpd.ntable);
+    ntable_mutex_lock(&bprd.ntable);
 
     /* update backlog differential for each neighbor's commodity */
-    for (e = LIST_FIRST(&dubpd.ntable.nlist); e != NULL; e = LIST_NEXT(e, elms)) {
+    for (e = LIST_FIRST(&bprd.ntable.nlist); e != NULL; e = LIST_NEXT(e, elms)) {
         n = (neighbor_t *)e->data;
 
         for (f = LIST_FIRST(&n->clist); f != NULL; f = LIST_NEXT(f, elms)) {
             c = (commodity_t *)f->data;
 
-            /* find matching commodity in dubpd.clist */
-            if ((ctemp = clist_find(&dubpd.clist, c)) == NULL) {
-                DUBP_LOG_ERR("Neighbor knows about commodity that I don't!");
+            /* find matching commodity in bprd.clist */
+            if ((ctemp = clist_find(&bprd.clist, c)) == NULL) {
+                BPRD_LOG_ERR("Neighbor knows about commodity that I don't!");
             }
 
             if (ctemp->cdata.backlog >= c->cdata.backlog) {
@@ -267,13 +267,13 @@ static void router_update() {
 
     /* find the optimal next hop for each commodity */
     /* for each commodity, also save the max backlog differential */
-    for(e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+    for(e = LIST_FIRST(&bprd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
         c = (commodity_t *)e->data;
 
         if (netaddr_cmp(&naddr, &(c->cdata.addr)) == 0) {
             /* the commodity is destined to me! ignore it */
             struct netaddr_str tempstr;
-            DUBP_LOG_DBG("Ignoring commodity destined to: %s", netaddr_to_string(&tempstr, &c->cdata.addr));
+            BPRD_LOG_DBG("Ignoring commodity destined to: %s", netaddr_to_string(&tempstr, &c->cdata.addr));
             c->backdiff = 0;
             continue;
         }
@@ -284,11 +284,11 @@ static void router_update() {
         nopt = NULL;
 
         /* try to find this commodity in neighbor's clist */
-        for(f = LIST_FIRST(&dubpd.ntable.nlist); f != NULL; f = LIST_NEXT(f, elms)) {
+        for(f = LIST_FIRST(&bprd.ntable.nlist); f != NULL; f = LIST_NEXT(f, elms)) {
             n = (neighbor_t *)f->data;
 
             if ((ctemp = clist_find(&n->clist, c)) == NULL) {
-                DUBP_LOG_ERR("I know about a commodity that my neighbor doesn't!");
+                BPRD_LOG_ERR("I know about a commodity that my neighbor doesn't!");
             }
 
             if (!n->bidir) {
@@ -332,7 +332,7 @@ static void router_update() {
             /* by here, we have the best nexthop for commodity c, set it */
             /* convert commodity destination and nexthop addresses from netaddr to socket */
             netaddr_to_socket(&nsaddr_nh, &(nopt->addr));
-            router_route_update(&(nsaddr_dst.std), &(nsaddr_nh.std), dubpd.ipver, dubpd.if_index);
+            router_route_update(&(nsaddr_dst.std), &(nsaddr_nh.std), bprd.ipver, bprd.if_index);
             /* save the max differential inside my commodity list */
             c->backdiff = diffopt;
         } else {
@@ -341,7 +341,7 @@ static void router_update() {
         }
     }
 
-    ntable_mutex_unlock(&dubpd.ntable);
+    ntable_mutex_unlock(&bprd.ntable);
 
 }
 
@@ -354,8 +354,8 @@ static void router_update() {
 static void *router_thread_main(void *arg __attribute__((unused)) ) {
 
      /* initialize the interface with the routing table */
-    if (router_init(dubpd.if_index, dubpd.ipver) < 0) {
-        DUBP_LOG_ERR("Unable to initialize router");
+    if (router_init(bprd.if_index, bprd.ipver) < 0) {
+        BPRD_LOG_ERR("Unable to initialize router");
     }
 
     /* just hang out here for a while */
@@ -370,25 +370,25 @@ static void *router_thread_main(void *arg __attribute__((unused)) ) {
          */
         router_update();
 
-        ntable_mutex_lock(&dubpd.ntable);
+        ntable_mutex_lock(&bprd.ntable);
         time_t t = time(NULL);
         printf("\n\n\n---------------------------------------------------\n");
         printf("My Commodities, Current Time: %s\n", asctime(localtime(&t)));
         elm_t *e;
         commodity_t *c;
         netaddr_str_t naddr_str;
-        LIST_EMPTY(&dubpd.clist) ? printf("\tNONE\n") : 0;
-        for (e = LIST_FIRST(&dubpd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
+        LIST_EMPTY(&bprd.clist) ? printf("\tNONE\n") : 0;
+        for (e = LIST_FIRST(&bprd.clist); e != NULL; e = LIST_NEXT(e, elms)) {
             c = (commodity_t *)e->data;
             printf("\tDest: %s \t Backlog: %u \t Max Differential: %u\n", netaddr_to_string(&naddr_str, &c->cdata.addr), c->cdata.backlog, c->backdiff);
         }
         printf("\n");
-        ntable_print(&dubpd.ntable);
+        ntable_print(&bprd.ntable);
         printf("---------------------------------------------------\n");
-        ntable_mutex_unlock(&dubpd.ntable);
+        ntable_mutex_unlock(&bprd.ntable);
 
         /** \todo change to nanosleep */
-        usleep(dubpd.update_interval);
+        usleep(bprd.update_interval);
     }
 
     /** \todo clean up if while loop breaks? */
@@ -403,8 +403,8 @@ static void *router_thread_main(void *arg __attribute__((unused)) ) {
 void router_thread_create() {
 
     /** \todo Check out pthread_attr options, currently set to NULL */
-    if (pthread_create(&(dubpd.router_tid), NULL, router_thread_main, NULL) < 0) {
-        DUBP_LOG_ERR("Unable to create router thread");
+    if (pthread_create(&(bprd.router_tid), NULL, router_thread_main, NULL) < 0) {
+        BPRD_LOG_ERR("Unable to create router thread");
     }
 
     /** \todo wait here until process stops? pthread_join(htdata.tid)? */
