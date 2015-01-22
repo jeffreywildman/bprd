@@ -13,7 +13,6 @@
 #include <errno.h>
 #include <getopt.h>
 #include <ifaddrs.h>
-#include <net/if.h>
 #include <netinet/in.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -40,6 +39,7 @@
 #include "util.h"
 #include "commodity.h"
 #include "router.h"
+#include "netif.h"      /* for netif_nametoindex(), NETIF_NAMESIZE */
 
 
 /* pre-initialization of runtime variables */
@@ -133,7 +133,7 @@ static void socket_init() {
     if (inet_pton(AF_INET, MANET_LINKLOCAL_ROUTERS_V4, &mreq.imr_multiaddr) <= 0) {
         DUBP_LOG_ERR("Unable to convert MANET link local address");
     }
-    if ((mreq.imr_ifindex = if_nametoindex(dubpd.if_name)) <= 0) {
+    if ((mreq.imr_ifindex = netif_nametoindex(dubpd.if_name)) <= 0) {
         DUBP_LOG_ERR("Unable to convert device name to index");
     }
 
@@ -429,15 +429,15 @@ void dubp_init(int argc, char **argv) {
 
     /* get hardware interface name */
     if (!dubpd.if_name) {
-        if (!(dubpd.if_name = (char *)malloc(IF_NAMESIZE*sizeof(char)))) {
+        if (!(dubpd.if_name = (char *)malloc(NETIF_NAMESIZE*sizeof(char)))) {
             DUBP_LOG_ERR("Unable to allocate memory");
         }
-        if (snprintf(dubpd.if_name, IF_NAMESIZE*sizeof(char), "%s", DUBP_DEFAULT_INTERFACE) < 0) {
+        if (snprintf(dubpd.if_name, NETIF_NAMESIZE*sizeof(char), "%s", DUBP_DEFAULT_INTERFACE) < 0) {
             DUBP_LOG_ERR("Unable to set default interface string");
         }
     }
     /* get hardware interface index */
-    if ((dubpd.if_index = if_nametoindex(dubpd.if_name)) == 0) {
+    if ((dubpd.if_index = netif_nametoindex(dubpd.if_name)) == 0) {
         DUBP_LOG_ERR("Unable to get index of hardware interface: %s", dubpd.if_name);
     }
 

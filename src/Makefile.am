@@ -15,6 +15,7 @@ dubpd_SOURCES = \
 				list.c \
 				logger.c \
 				neighbor.c \
+				netif.c \
 				ntable.c \
 				pidfile.c \
 				procfile.c \

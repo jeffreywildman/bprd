@@ -8,7 +8,6 @@
 
 #include <limits.h>      /* for PATH_MAX */
 #include <stdio.h>       /* for snprintf() */
-#include <net/if.h>      /* for if_indextoname(), IF_NAMESIZE */
 #include <sys/socket.h>  /* must come before linux/netlink.h so sa_family_t is defined */
                          /* http://groups.google.com/group/linux.kernel/browse_thread/thread/6de65a3145007ae5?pli=1 */
 
@@ -29,6 +28,7 @@
 #include "neighbor.h"
 #include "list.h"
 #include "dubp.h"
+#include "netif.h"      /* for netif_indextoname(), NETIF_NAMESIZE */
 
 
 static struct nl_sock *router_nlsk;     /**< Internal reference to the netlink socket. */
@@ -52,7 +52,7 @@ static int router_init(unsigned int if_index, unsigned int family) {
 //    struct nl_cache *cache;
 //    struct rtnl_link *link, *new;
     int n;
-    char if_name[IF_NAMESIZE];
+    char if_name[NETIF_NAMESIZE];
 
     router_if_index = if_index;
     router_family = family;
@@ -66,7 +66,7 @@ static int router_init(unsigned int if_index, unsigned int family) {
         return -1;
     }
 
-    if (if_indextoname(if_index, if_name) == NULL) {
+    if (netif_indextoname(if_index, if_name) == NULL) {
         return -1;   
     }
 
