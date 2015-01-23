@@ -1,6 +1,16 @@
+/**
+ * The BackPressure Routing Daemon (bprd).
+ *
+ * Copyright (c) 2012 Jeffrey Wildman <jeffrey.wildman@gmail.com>
+ * Copyright (c) 2012 Bradford Boyle <bradford.d.boyle@gmail.com>
+ *
+ * bprd is released under the MIT License.  You should have received
+ * a copy of the MIT License with this program.  If not, see
+ * <http://opensource.org/licenses/MIT>.
+ */
+
 /*
  * fifo_queue.h
- * (C) 2012 by Bradford Boyle <bradford@minerva.ece.drexel.edu
  *
  * A simple FIFO queue for libnetfilter_queue is maintained by keeping
  * track of the id the most recently seen packet and the id of the
