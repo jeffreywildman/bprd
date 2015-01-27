@@ -37,7 +37,6 @@ Build/Installation Notes:
   + libnl-3-dev
   + libnl-route-3-dev
   + doxygen (optional)
-
 * BPRD makes use of autotools:
 
       ./autogen.sh
@@ -49,6 +48,8 @@ Build/Installation Notes:
 
       make doc
 
+  These files will be built in doc/html/
+* A design document in LaTeX/PDF formats is available in doc/bprd-overview
 * Optional syslog configuration file provided in scripts/
 * Optional bash autocompletion file provided in scripts/
 
