@@ -18,7 +18,7 @@ AC_CONFIG_MACRO_DIR([m4])
 dnl Automake initialization and config macros
 dnl ***************************************************************************
 
-AM_INIT_AUTOMAKE([color-tests subdir-objects silent-rules no-exeext])
+AM_INIT_AUTOMAKE([color-tests subdir-objects silent-rules no-exeext foreign])
 
 AM_SILENT_RULES([yes])
 
