@@ -39,14 +39,14 @@ Build/Installation Notes:
   + doxygen (optional)
 * BPRD makes use of autotools:
 
-      ./autogen.sh
-      ./configure
-      make
-      make install
+        ./autogen.sh
+        ./configure
+        make
+        make install
 
 * Doxygen documentation may be built using:
 
-      make doc
+        make doc
 
   These files will be built in doc/html/
 * A design document in LaTeX/PDF formats is available in doc/bprd-overview
@@ -59,7 +59,7 @@ Usage Notes:
 
 * List command line options:
 
-      bprd --help
+        bprd --help
 
 * IPv6 not supported despite the ambitious command line option
 * Commodities are specified in "ADDR,ID" tuples.  BPRD will treat all UDP
